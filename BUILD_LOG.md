@@ -301,3 +301,38 @@
   scoped as "implement `generate()`, done" in the original decision) and
   CLAUDE.md's provider descriptions to reflect `OpenAIProvider` as
   implemented, not stubbed.
+
+## 2026-08-13 - Query CLI end-to-end test (via OpenAIProvider)
+
+- Ran `python -m query.ask` end-to-end for real, through the actual CLI
+  entry point (`LLM_PROVIDER=openai` set for the invocation, not
+  hardcoded into any test script) - the first time the full pipeline
+  (entity extraction -> graph loading -> retrieval -> format_context ->
+  provider resolution -> live LLM call -> printed answer) was exercised
+  as a user would actually run it, rather than via direct Python calls
+  to individual functions.
+- Three cases, all passed:
+  - `"what happens after T1059.001 for APT29?"` - correct facts
+    retrieved, correct group filter applied, and the OpenAI-backed
+    answer correctly distinguished edge direction on its own (excluded
+    the incoming `T1204.002 --CAUSALLY_ENABLES--> T1059.001` edge from
+    "what happens after," since it points into T1059.001, not out of
+    it - the system prompt's TEMPORALLY_PRECEDES/CAUSALLY_ENABLES
+    distinction held up against a real model, not just in the prompt
+    text).
+  - `"what did Lazarus Group do with T1560.001?"` - group correctly
+    inferred from the question text (no explicit "for X" phrasing
+    needed), and the answer correctly synthesized both an incoming
+    (`T1083 --TEMPORALLY_PRECEDES--> T1560.001`) and an outgoing
+    (`T1560.001 --CAUSALLY_ENABLES--> T1071.001`) edge into one
+    coherent, fully-cited answer.
+  - `"what happens after phishing?"` (no technique ID) - failed cleanly
+    with the expected error message and exit code 1, no crash.
+- Confirmed this closes the loop on docs/decisions/004's claim that the
+  provider abstraction "works with a second real vendor, not just in
+  theory" - that claim was previously verified only via direct Python
+  calls (`OpenAIProvider().generate(...)`, `rag.answer(...,
+  provider=...)`), not via the actual CLI a user runs. Now it has been.
+- No files changed - Claude remains the default provider
+  (`LLM_PROVIDER` unset in `.env`); this session only set the env var
+  for the test invocations, it wasn't made the persistent default.
