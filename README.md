@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
 [![NetworkX](https://img.shields.io/badge/NetworkX-3.2%2B-orange.svg)](https://networkx.org/)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](tests/)
+[![Tests](https://github.com/HungryBrain-bot/attackKnowledgeGraph/actions/workflows/test.yml/badge.svg)](https://github.com/HungryBrain-bot/attackKnowledgeGraph/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
 
 A knowledge-graph prototype over a scoped subset of MITRE ATT&CK, modeling

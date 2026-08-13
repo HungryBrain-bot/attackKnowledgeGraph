@@ -313,6 +313,19 @@ Phase 1 structural graph and Phase 2 semantic edges.
   `fetch_test_logs.py --fetch` if that data is ever cleared.
 - `pytest` (added to requirements.txt) - first use is the one test
   above. Run with `python -m pytest tests/` from the repo root.
+  **`.github/workflows/test.yml` runs this in CI** on every push/PR to
+  `main`: sets up Python, installs dependencies, downloads (and caches)
+  the STIX bundle, rebuilds both graph JSON files from scratch (same
+  sequence as README's Quick Start), then runs the suite. Deliberately
+  limited to the deterministic, free tests - no `ANTHROPIC_API_KEY`/
+  `OPENAI_API_KEY` are configured as GitHub Actions secrets at this
+  stage, so `test_adversarial_queries.py` and the EVTX-cross-check tests
+  in `test_query_layer_against_evtx.py` skip cleanly in CI rather than
+  running or failing - verified for real by simulating that exact
+  environment locally (no `.env`, no fetched `data/test_logs/`) before
+  relying on the claim: 5 skipped, 0 failed, exit code 0. README's
+  Tests badge now links to the real, live workflow run history instead
+  of a static "passing" claim.
 - `.claude/skills/generate-diagrams/` + `graph/generate_diagrams.py` -
   Mermaid diagrams, split into two categories (see "Diagrams:
   auto-generated vs. hand-authored" above for the exact list).
@@ -352,7 +365,10 @@ sourcing if time allows. Retrieval is single-technique/one-hop by
 design (docs/decisions/003) - multi-hop or multi-entity queries are a
 future extension, not a gap in this pass. `tests/` has its first real
 test (query layer vs. real EVTX telemetry) - extending coverage to
-`graph/` or adding CI is unbuilt. The `ai-security-assessment` skill's
+`graph/` is unbuilt. CI now exists (`.github/workflows/test.yml`, see
+below) but only runs the deterministic/free tests, per design - no
+Anthropic/OpenAI secrets are configured for GitHub Actions at this
+stage. The `ai-security-assessment` skill's
 first pass covered `OpenAIProvider` only and left two documented open
 items (see docs/security-assessment.md's "Open items for the next
 pass"): re-running the same cases against `ClaudeProvider` once a key

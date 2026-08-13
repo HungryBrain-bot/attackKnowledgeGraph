@@ -630,3 +630,43 @@
   provenance, matching this session's own established pattern for
   splitting work that arrived as one request but represents genuinely
   different kinds of change.
+
+## 2026-08-13 - GitHub Actions CI
+
+- Added `.github/workflows/test.yml`: triggers on push/PR to `main`,
+  sets up Python 3.13, installs `requirements.txt`, downloads the STIX
+  bundle with the same curl command documented in CLAUDE.md's Setup
+  section (cached across runs via `actions/cache` keyed on a static
+  cache key, since the bundle is ~48MB and changes rarely - most runs
+  skip the download entirely), rebuilds `data/structural_graph.json` and
+  `data/graph_with_semantics.json` from scratch (`python -m
+  graph.build_graph` then `python -m graph.semantic_edges` - the same
+  sequence as README's Quick Start, so CI actually exercises the graph
+  pipeline rather than just checking that the committed JSON snapshots
+  still parse), then `python -m pytest tests/`.
+- **Verified the no-live-LLM-tests claim for real before relying on it,
+  not just by reading the skip logic**: ran the suite locally with both
+  `data/test_logs/` moved aside (simulating no fetched EVTX samples) and
+  `.env` moved aside (simulating no configured provider credentials -
+  moving it was necessary because `query/llm_provider.py`'s
+  `load_dotenv()` reads the file directly off disk regardless of shell
+  environment variables, so an earlier attempt to simulate this by only
+  unsetting shell env vars gave a false negative: the adversarial tests
+  still ran for real against the live API, silently spending real
+  tokens, because `.env` was still present on disk). With both moved
+  aside: 5 skipped, 0 failed, exit code 0 - confirms the workflow needs
+  no `fetch-test-logs` step and no API key secrets to go green, exactly
+  as intended, and that the design actually degrades to skips rather
+  than failures or (worse) silent live calls when credentials are
+  simply absent, which is the real GitHub Actions condition. Restored
+  both afterward.
+- No `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` were added as GitHub Actions
+  secrets - deliberate, per this session's request: CI stays limited to
+  the deterministic, free tests only, matching how
+  `test_query_layer_against_evtx.py` was originally scoped (no LLM
+  call, per its own docstring) and extending that same boundary to
+  `test_adversarial_queries.py`.
+- Replaced README's static `tests-passing` shields.io badge (a claim,
+  not a measurement - it couldn't ever have shown red) with the real
+  live GitHub Actions status badge, linked to the actual workflow run
+  history.

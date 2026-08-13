@@ -1,0 +1,58 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # The STIX bundle is ~48MB and gitignored (see CLAUDE.md's Setup
+      # section) - cached across runs since it changes rarely, so most
+      # runs skip the download entirely.
+      - name: Cache MITRE ATT&CK STIX bundle
+        id: stix-cache
+        uses: actions/cache@v4
+        with:
+          path: data/raw/enterprise-attack.json
+          key: stix-bundle-enterprise-attack
+
+      - name: Download MITRE ATT&CK STIX bundle
+        if: steps.stix-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p data/raw
+          curl -o data/raw/enterprise-attack.json \
+            https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json
+
+      # Rebuilds data/structural_graph.json and data/graph_with_semantics.json
+      # from scratch, same as the README's Quick Start - this is what
+      # actually catches the graph pipeline breaking, not just that the
+      # committed JSON snapshots happen to still parse.
+      - name: Build structural graph
+        run: python -m graph.build_graph
+
+      - name: Add semantic edges
+        run: python -m graph.semantic_edges
+
+      # No ANTHROPIC_API_KEY/OPENAI_API_KEY secrets are configured for
+      # this repo at this stage, and data/test_logs/ is never fetched
+      # here - so the EVTX cross-check tests and the adversarial LLM
+      # tests both skip cleanly (pytest.mark.skipif, not a failure) per
+      # their existing design (see tests/*.py). This job intentionally
+      # runs only the deterministic, free, no-network-beyond-the-STIX-
+      # bundle tests; a green run here can be all-skips for those two
+      # files and that's expected, not a gap to "fix" by adding secrets.
+      - name: Run test suite
+        run: python -m pytest tests/ -v
