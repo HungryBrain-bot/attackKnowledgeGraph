@@ -316,14 +316,28 @@
     {
       "edge_type": "CAUSALLY_ENABLES",
       "group_context": "APT28",
-      "confidence": 0.8,
+      "confidence": 0.65,
       "sample_size": 1,
       "sources": [
-        "Volexity Nearest Neighbor Attack Nov 2024"
+        "TrendMicro Pawn Storm Dec 2020"
       ],
-      "evidence": "Volexity's 'Nearest Neighbor Attack' report describes APT28 running a custom PowerShell script on a compromised system to enumerate nearby Wi-Fi networks in range - that reconnaissance is what let them identify and then RDP into the target organization's network via its enterprise Wi-Fi. A single source, but a directly narrated mechanism in one specific, publicly documented intrusion.",
+      "evidence": "Trend Micro's December 2020 Pawn Storm report co-cites both T1059.001 and T1547.001 for APT28 - the only source MITRE's own relationship data has for T1547.001 on this group. The report documents Pawn Storm's PowerShell-heavy tradecraft (including a PowerShell payload built to steal Net-NTLMv2 hashes) but the specific 'PowerShell writes the run key' mechanism isn't quoted verbatim in what we could retrieve - confidence reflects mechanistic plausibility plus co-citation, not a directly narrated sequence.",
       "source": "T1059.001",
-      "target": "T1021.001",
+      "target": "T1547.001",
+      "key": 0
+    },
+    {
+      "edge_type": "CAUSALLY_ENABLES",
+      "group_context": "APT28",
+      "confidence": 0.65,
+      "sample_size": 2,
+      "sources": [
+        "TrendMicro Pawn Storm Dec 2020",
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021"
+      ],
+      "evidence": "Both sources co-cite T1059.001 and T1105 for APT28: the GRU Brute Force advisory describes credential access being followed by 'further network access via remote code execution and lateral movement' (consistent with a PowerShell-driven foothold pulling in additional tooling), and the Pawn Storm report documents multi-stage PowerShell payload delivery. Ordering is inferred from co-citation and the general shape of a PowerShell-first-stage-then-tool-download pattern, not an explicit quote naming this exact sequence.",
+      "source": "T1059.001",
+      "target": "T1105",
       "key": 0
     },
     {
@@ -370,9 +384,22 @@
       "sources": [
         "Volexity Nearest Neighbor Attack Nov 2024"
       ],
-      "evidence": "The same Volexity report: the RDP connection into the target organization was only possible because APT28 already held compromised/valid Wi-Fi credentials for that organization. Valid Accounts is a documented precondition for the RDP step in this incident, not a general assumption about RDP.",
+      "evidence": "CORRECTED 2026-08-13: the RDP hop this edge refers to is into the dual-homed pivot system at Organization B, not directly into the ultimate target (Organization A) - Volexity states APT28 used 'privileged credentials to connect to it via RDP from another system within Organization B's network.' Valid Accounts is a documented precondition for that RDP step in this incident.",
       "source": "T1078",
       "target": "T1021.001",
+      "key": 0
+    },
+    {
+      "edge_type": "CAUSALLY_ENABLES",
+      "group_context": "APT28",
+      "confidence": 0.85,
+      "sample_size": 1,
+      "sources": [
+        "Volexity Nearest Neighbor Attack Nov 2024"
+      ],
+      "evidence": "A second, distinct use of Valid Accounts in the same incident: after pivoting through the RDP foothold and the PowerShell Wi-Fi script, APT28 associated with Organization A's own enterprise Wi-Fi using a separately compromised credential set. Volexity explicitly states credential dumping (`reg save hklm\\sam ...` plus SECURITY and SYSTEM hives) happened only after that Wi-Fi access into Organization A was established, not before. Not modeled as a second T1059.001->T1078 edge to avoid implying a cycle back through the same PowerShell/RDP steps already captured above - this edge and the T1078 -> T1021.001 edge represent two different credential instances in the same incident, not a loop.",
+      "source": "T1078",
+      "target": "T1003.002",
       "key": 0
     },
     {
@@ -389,6 +416,21 @@
       "key": 0
     },
     {
+      "edge_type": "TEMPORALLY_PRECEDES",
+      "group_context": "APT29",
+      "confidence": 0.7,
+      "sample_size": 3,
+      "sources": [
+        "UK NSCS Russia SolarWinds April 2021",
+        "Mandiant UNC2452 APT29 April 2022",
+        "NSA Joint Advisory SVR SolarWinds April 2021"
+      ],
+      "evidence": "Extends the existing SolarWinds/APT29 chain (see T1059.001 -> T1078 above): three reports on the same intrusion co-cite both T1078 and T1057, consistent with the well-documented pattern of process discovery being run as a survey step once privileged account access is already in hand. Ordering follows the pipeline's natural shape rather than an explicit quoted sequence, hence 0.7 rather than the 0.85 on the more directly-quoted T1059.001 -> T1078 edge.",
+      "source": "T1078",
+      "target": "T1057",
+      "key": 0
+    },
+    {
       "edge_type": "HAS_TACTIC",
       "source": "T1003.002",
       "target": "tactic--credential-access",
@@ -398,6 +440,22 @@
       "edge_type": "HAS_TACTIC",
       "source": "T1057",
       "target": "tactic--discovery",
+      "key": 0
+    },
+    {
+      "edge_type": "TEMPORALLY_PRECEDES",
+      "group_context": "APT29",
+      "confidence": 0.7,
+      "sample_size": 4,
+      "sources": [
+        "Volexity SolarWinds",
+        "UK NSCS Russia SolarWinds April 2021",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
+        "Mandiant UNC2452 APT29 April 2022"
+      ],
+      "evidence": "Same SolarWinds/APT29 chain: four reports co-cite T1057 and T1083 for this intrusion. Process discovery and file/directory discovery are both 'discovery' tactic recon steps commonly run as a pair; ordering here (process survey, then filesystem survey) is inferred from the pipeline shape and technique semantics rather than an explicit narrated sequence.",
+      "source": "T1057",
+      "target": "T1083",
       "key": 0
     },
     {
@@ -429,6 +487,19 @@
       "key": 0
     },
     {
+      "edge_type": "CAUSALLY_ENABLES",
+      "group_context": "APT28",
+      "confidence": 0.85,
+      "sample_size": 1,
+      "sources": [
+        "Volexity Nearest Neighbor Attack Nov 2024"
+      ],
+      "evidence": "CORRECTED 2026-08-13: an earlier pass had this edge reversed (T1059.001 -> T1021.001). Re-reading Volexity's 'Nearest Neighbor Attack' report in full shows the actual order was RDP first: APT28 used privileged credentials to RDP into a dual-homed system at Organization B (the neighboring org used as a pivot), and only once they had that foothold did they run a custom PowerShell script on it to enumerate nearby Wi-Fi networks in range. The RDP access is the precondition for being able to run the recon script at all, not the reverse.",
+      "source": "T1021.001",
+      "target": "T1059.001",
+      "key": 0
+    },
+    {
       "edge_type": "HAS_TACTIC",
       "source": "T1071.001",
       "target": "tactic--command-and-control",
@@ -438,6 +509,32 @@
       "edge_type": "HAS_TACTIC",
       "source": "T1105",
       "target": "tactic--command-and-control",
+      "key": 0
+    },
+    {
+      "edge_type": "CAUSALLY_ENABLES",
+      "group_context": "APT29",
+      "confidence": 0.8,
+      "sample_size": 1,
+      "sources": [
+        "Mandiant APT29 Eye Spy Email Nov 22"
+      ],
+      "evidence": "Mandiant's UNC3524 ('Eye Spy on Your Email') report, merged into APT29 in Nov 2022, narrates a direct sequence: the actor first deployed the QUIETEXIT backdoor onto network appliances (SAN arrays, load balancers, wireless access points) - the ingress tool transfer step - then used QUIETEXIT's SOCKS tunnel to move laterally and run `reg save` against the SAM, SECURITY, and SYSTEM registry hives to extract credentials offline. Tool transfer is an explicit precondition for the credential dumping step in this report, not an inference.",
+      "source": "T1105",
+      "target": "T1003.002",
+      "key": 0
+    },
+    {
+      "edge_type": "CAUSALLY_ENABLES",
+      "group_context": "APT29",
+      "confidence": 0.65,
+      "sample_size": 1,
+      "sources": [
+        "Mandiant No Easy Breach"
+      ],
+      "evidence": "Mandiant's 'No Easy Breach' (DerbyCon 2016, Dunwoody & Carr) is the sole MITRE-cited source for T1547.001 on APT29, and is also cited for T1105 - the same presentation covers both APT29 tool delivery and its use of registry run keys with obfuscated PowerShell for persistence. We could not retrieve the full presentation to confirm an explicit tool-transfer-then-persist quote, so this is scored on co-citation plus the ordinary shape of an intrusion (get tooling onto the host, then persist it) rather than a directly narrated sequence.",
+      "source": "T1105",
+      "target": "T1547.001",
       "key": 0
     },
     {
@@ -502,14 +599,14 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "PWC WellMess July 2020",
-        "F-Secure The Dukes",
-        "UK NSCS Russia SolarWinds April 2021",
-        "FireEye SUNBURST Backdoor December 2020",
+        "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
+        "FireEye SUNBURST Backdoor December 2020",
         "Mandiant No Easy Breach",
         "Mandiant APT29 Eye Spy Email Nov 22",
-        "Mandiant UNC2452 APT29 April 2022"
+        "PWC WellMess July 2020",
+        "F-Secure The Dukes",
+        "UK NSCS Russia SolarWinds April 2021"
       ],
       "source": "APT29",
       "target": "T1105",
@@ -518,10 +615,10 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "F-Secure The Dukes",
-        "MSTIC NOBELIUM May 2021",
         "Secureworks IRON HEMLOCK Profile",
-        "ESET T3 Threat Report 2021"
+        "ESET T3 Threat Report 2021",
+        "MSTIC NOBELIUM May 2021",
+        "F-Secure The Dukes"
       ],
       "source": "APT29",
       "target": "T1566.001",
@@ -530,16 +627,16 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Microsoft Analyzing Solorigate Dec 2020",
-        "Mandiant UNC2452 APT29 April 2022",
-        "CrowdStrike StellarParticle January 2022",
-        "UK NSCS Russia SolarWinds April 2021",
-        "NSA Joint Advisory SVR SolarWinds April 2021",
-        "Mandiant No Easy Breach",
-        "Secureworks IRON HEMLOCK Profile",
-        "Volexity SolarWinds",
         "ESET T3 Threat Report 2021",
-        "Symantec Seaduke 2015"
+        "Mandiant UNC2452 APT29 April 2022",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
+        "Symantec Seaduke 2015",
+        "CrowdStrike StellarParticle January 2022",
+        "Mandiant No Easy Breach",
+        "Microsoft Analyzing Solorigate Dec 2020",
+        "UK NSCS Russia SolarWinds April 2021",
+        "Secureworks IRON HEMLOCK Profile",
+        "Volexity SolarWinds"
       ],
       "source": "APT29",
       "target": "T1059.001",
@@ -548,13 +645,13 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "MSTIC NOBELIUM Mar 2021",
-        "Cybersecurity Advisory SVR TTP May 2021",
-        "UK NSCS Russia SolarWinds April 2021",
-        "FireEye SUNBURST Backdoor December 2020",
+        "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
+        "Cybersecurity Advisory SVR TTP May 2021",
+        "FireEye SUNBURST Backdoor December 2020",
+        "MSTIC NOBELIUM Mar 2021",
         "Mandiant APT29 Microsoft 365 2022",
-        "Mandiant UNC2452 APT29 April 2022"
+        "UK NSCS Russia SolarWinds April 2021"
       ],
       "source": "APT29",
       "target": "T1078",
@@ -563,9 +660,9 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "F-Secure The Dukes",
+        "ESET T3 Threat Report 2021",
         "Secureworks IRON HEMLOCK Profile",
-        "ESET T3 Threat Report 2021"
+        "F-Secure The Dukes"
       ],
       "source": "APT29",
       "target": "T1204.002",
@@ -574,12 +671,12 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "CrowdStrike StellarParticle January 2022",
-        "UK NSCS Russia SolarWinds April 2021",
+        "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
+        "CrowdStrike StellarParticle January 2022",
         "Microsoft Deep Dive Solorigate January 2021",
-        "Volexity SolarWinds",
-        "Mandiant UNC2452 APT29 April 2022"
+        "UK NSCS Russia SolarWinds April 2021",
+        "Volexity SolarWinds"
       ],
       "source": "APT29",
       "target": "T1057",
@@ -588,10 +685,10 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "UK NSCS Russia SolarWinds April 2021",
+        "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
         "CrowdStrike StellarParticle January 2022",
-        "Mandiant UNC2452 APT29 April 2022"
+        "UK NSCS Russia SolarWinds April 2021"
       ],
       "source": "APT29",
       "target": "T1021.001",
@@ -601,9 +698,9 @@
       "edge_type": "USES_TECHNIQUE",
       "sources": [
         "UK NSCS Russia SolarWinds April 2021",
+        "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
-        "Volexity SolarWinds",
-        "Mandiant UNC2452 APT29 April 2022"
+        "Volexity SolarWinds"
       ],
       "source": "APT29",
       "target": "T1083",
@@ -613,9 +710,9 @@
       "edge_type": "USES_TECHNIQUE",
       "sources": [
         "UK NSCS Russia SolarWinds April 2021",
+        "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
-        "Volexity SolarWinds",
-        "Mandiant UNC2452 APT29 April 2022"
+        "Volexity SolarWinds"
       ],
       "source": "APT29",
       "target": "T1074.002",
@@ -624,12 +721,12 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "CrowdStrike StellarParticle January 2022",
-        "UK NSCS Russia SolarWinds April 2021",
+        "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
+        "CrowdStrike StellarParticle January 2022",
         "Microsoft Deep Dive Solorigate January 2021",
-        "Volexity SolarWinds",
-        "Mandiant UNC2452 APT29 April 2022"
+        "UK NSCS Russia SolarWinds April 2021",
+        "Volexity SolarWinds"
       ],
       "source": "APT29",
       "target": "T1560.001",
@@ -639,9 +736,9 @@
       "edge_type": "USES_TECHNIQUE",
       "sources": [
         "UK NSCS Russia SolarWinds April 2021",
+        "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
-        "Volexity SolarWinds",
-        "Mandiant UNC2452 APT29 April 2022"
+        "Volexity SolarWinds"
       ],
       "source": "APT29",
       "target": "T1071.001",
@@ -650,15 +747,15 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "DOJ GRU Indictment Jul 2018",
-        "Sofacy DealersChoice",
-        "Accenture SNAKEMACKEREL Nov 2018",
-        "Cato LAMEHUG JUL 2025",
-        "Secureworks IRON TWILIGHT Active Measures March 2017",
-        "Securelist Sofacy Feb 2018",
         "TrendMicro Pawn Storm Dec 2020",
         "Palo Alto Sofacy 06-2018",
-        "Unit 42 Sofacy Feb 2018"
+        "Cato LAMEHUG JUL 2025",
+        "Secureworks IRON TWILIGHT Active Measures March 2017",
+        "Sofacy DealersChoice",
+        "Unit 42 Sofacy Feb 2018",
+        "Accenture SNAKEMACKEREL Nov 2018",
+        "DOJ GRU Indictment Jul 2018",
+        "Securelist Sofacy Feb 2018"
       ],
       "source": "APT28",
       "target": "T1566.001",
@@ -667,9 +764,9 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "TrendMicro Pawn Storm Dec 2020",
-        "Nearest Neighbor Volexity",
         "Palo Alto Sofacy 06-2018",
+        "Nearest Neighbor Volexity",
+        "TrendMicro Pawn Storm Dec 2020",
         "Cybersecurity Advisory GRU Brute Force Campaign July 2021"
       ],
       "source": "APT28",
@@ -707,11 +804,11 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Unit 42 Playbook Dec 2017",
-        "Accenture SNAKEMACKEREL Nov 2018",
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021",
         "TrendMicro Pawn Storm Dec 2020",
         "Bitdefender APT28 Dec 2015",
-        "Cybersecurity Advisory GRU Brute Force Campaign July 2021"
+        "Unit 42 Playbook Dec 2017",
+        "Accenture SNAKEMACKEREL Nov 2018"
       ],
       "source": "APT28",
       "target": "T1105",
@@ -720,10 +817,10 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "DOJ GRU Indictment Jul 2018",
-        "Cybersecurity Advisory GRU Brute Force Campaign July 2021",
         "Microsoft STRONTIUM Aug 2019",
-        "Trend Micro Pawn Storm April 2017"
+        "Trend Micro Pawn Storm April 2017",
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021",
+        "DOJ GRU Indictment Jul 2018"
       ],
       "source": "APT28",
       "target": "T1078",
@@ -742,8 +839,8 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Cybersecurity Advisory GRU Brute Force Campaign July 2021",
-        "Nearest Neighbor Volexity"
+        "Nearest Neighbor Volexity",
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021"
       ],
       "source": "APT28",
       "target": "T1560.001",
@@ -754,8 +851,8 @@
       "sources": [
         "Cato LAMEHUG JUL 2025",
         "Unit 42 Sofacy Feb 2018",
-        "Secureworks IRON TWILIGHT Active Measures March 2017",
-        "Accenture SNAKEMACKEREL Nov 2018"
+        "Accenture SNAKEMACKEREL Nov 2018",
+        "Secureworks IRON TWILIGHT Active Measures March 2017"
       ],
       "source": "APT28",
       "target": "T1204.002",
@@ -791,14 +888,14 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Kaspersky ThreatNeedle Feb 2021",
-        "McAfee Lazarus Nov 2020",
-        "Qualys LolZarus",
         "McAfee Bankshot",
-        "McAfee Lazarus Jul 2020",
+        "ClearSky Lazarus Aug 2020",
+        "McAfee Lazarus Nov 2020",
         "Lazarus APT January 2022",
+        "Kaspersky ThreatNeedle Feb 2021",
+        "McAfee Lazarus Jul 2020",
         "ESET Lazarus Jun 2020",
-        "ClearSky Lazarus Aug 2020"
+        "Qualys LolZarus"
       ],
       "source": "Lazarus Group",
       "target": "T1566.001",
@@ -807,20 +904,20 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "TrendMicro macOS Dacls May 2020",
-        "Kaspersky ThreatNeedle Feb 2021",
-        "Novetta Blockbuster",
+        "ClearSky Lazarus Aug 2020",
         "Novetta Blockbuster Loaders",
         "McAfee Lazarus Nov 2020",
-        "Qualys LolZarus",
-        "ClearSky Lazarus Aug 2020",
-        "Novetta Blockbuster Destructive Malware",
         "Google TAG Lazarus Jan 2021",
-        "McAfee Lazarus Jul 2020",
         "Lazarus APT January 2022",
+        "TrendMicro macOS Dacls May 2020",
+        "Novetta Blockbuster",
+        "Kaspersky ThreatNeedle Feb 2021",
+        "McAfee Lazarus Jul 2020",
+        "SentinelOne Lazarus macOS July 2020",
         "ESET Lazarus Jun 2020",
-        "ESET Twitter Ida Pro Nov 2021",
-        "SentinelOne Lazarus macOS July 2020"
+        "Qualys LolZarus",
+        "Novetta Blockbuster Destructive Malware",
+        "ESET Twitter Ida Pro Nov 2021"
       ],
       "source": "Lazarus Group",
       "target": "T1105",
@@ -838,11 +935,11 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
+        "ClearSky Lazarus Aug 2020",
         "McAfee Lazarus Nov 2020",
-        "Google TAG Lazarus Jan 2021",
         "McAfee Lazarus Jul 2020",
         "ESET Lazarus Jun 2020",
-        "ClearSky Lazarus Aug 2020"
+        "Google TAG Lazarus Jan 2021"
       ],
       "source": "Lazarus Group",
       "target": "T1059.001",
@@ -851,16 +948,16 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "TrendMicro macOS Dacls May 2020",
-        "McAfee Lazarus Nov 2020",
-        "Qualys LolZarus",
         "ClearSky Lazarus Aug 2020",
-        "McAfee Lazarus Resurfaces Feb 2018",
-        "McAfee Lazarus Jul 2020",
-        "Lazarus APT January 2022",
-        "ESET Lazarus Jun 2020",
+        "McAfee Lazarus Nov 2020",
         "ESET Twitter Ida Pro Nov 2021",
-        "SentinelOne Lazarus macOS July 2020"
+        "Lazarus APT January 2022",
+        "TrendMicro macOS Dacls May 2020",
+        "McAfee Lazarus Jul 2020",
+        "SentinelOne Lazarus macOS July 2020",
+        "ESET Lazarus Jun 2020",
+        "Qualys LolZarus",
+        "McAfee Lazarus Resurfaces Feb 2018"
       ],
       "source": "Lazarus Group",
       "target": "T1071.001",
@@ -869,12 +966,12 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "TrendMicro macOS Dacls May 2020",
-        "Novetta Blockbuster",
         "McAfee GhostSecret",
         "Novetta Blockbuster Loaders",
-        "McAfee Lazarus Resurfaces Feb 2018",
-        "Lazarus APT January 2022"
+        "Lazarus APT January 2022",
+        "TrendMicro macOS Dacls May 2020",
+        "Novetta Blockbuster",
+        "McAfee Lazarus Resurfaces Feb 2018"
       ],
       "source": "Lazarus Group",
       "target": "T1057",
@@ -883,14 +980,14 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Novetta Blockbuster",
-        "Novetta Blockbuster RATs",
+        "ClearSky Lazarus Aug 2020",
         "McAfee Lazarus Nov 2020",
-        "McAfee Lazarus Resurfaces Feb 2018",
-        "McAfee Lazarus Jul 2020",
         "Lazarus APT January 2022",
+        "Novetta Blockbuster",
+        "McAfee Lazarus Jul 2020",
         "ESET Lazarus Jun 2020",
-        "ClearSky Lazarus Aug 2020"
+        "Novetta Blockbuster RATs",
+        "McAfee Lazarus Resurfaces Feb 2018"
       ],
       "source": "Lazarus Group",
       "target": "T1547.001",
@@ -899,14 +996,14 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Kaspersky ThreatNeedle Feb 2021",
-        "McAfee Lazarus Nov 2020",
-        "Qualys LolZarus",
         "McAfee Bankshot",
-        "McAfee Lazarus Jul 2020",
+        "ClearSky Lazarus Aug 2020",
+        "McAfee Lazarus Nov 2020",
         "Lazarus APT January 2022",
+        "Kaspersky ThreatNeedle Feb 2021",
+        "McAfee Lazarus Jul 2020",
         "ESET Lazarus Jun 2020",
-        "ClearSky Lazarus Aug 2020"
+        "Qualys LolZarus"
       ],
       "source": "Lazarus Group",
       "target": "T1204.002",
@@ -915,14 +1012,14 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Novetta Blockbuster",
+        "ClearSky Lazarus Aug 2020",
         "McAfee GhostSecret",
         "McAfee Lazarus Nov 2020",
-        "Qualys LolZarus",
-        "McAfee Lazarus Jul 2020",
         "Lazarus APT January 2022",
+        "Novetta Blockbuster",
+        "McAfee Lazarus Jul 2020",
         "ESET Lazarus Jun 2020",
-        "ClearSky Lazarus Aug 2020"
+        "Qualys LolZarus"
       ],
       "source": "Lazarus Group",
       "target": "T1083",
@@ -931,8 +1028,8 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Novetta Blockbuster RATs",
-        "Novetta Blockbuster"
+        "Novetta Blockbuster",
+        "Novetta Blockbuster RATs"
       ],
       "source": "Lazarus Group",
       "target": "T1021.001",
@@ -943,8 +1040,8 @@
       "sources": [
         "McAfee Lazarus Jul 2020",
         "ESET Lazarus Jun 2020",
-        "ClearSky Lazarus Aug 2020",
-        "McAfee Lazarus Nov 2020"
+        "McAfee Lazarus Nov 2020",
+        "ClearSky Lazarus Aug 2020"
       ],
       "source": "Lazarus Group",
       "target": "T1560.001",

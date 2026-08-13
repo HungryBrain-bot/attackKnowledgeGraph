@@ -77,3 +77,47 @@
 - Next: extend semantic edge coverage to the remaining 4 techniques and
   consider cross-group comparison edges once evidence is found: then the
   Graph RAG query layer (traversal + LLM-formatted, cited answers).
+
+## 2026-08-13 - Semantic edge coverage completed (remaining 4 techniques)
+
+- Researched and added 7 new semantic edges covering the 4 techniques
+  left out of the first pass (T1003.002, T1057, T1105, T1547.001) - all
+  13 seed techniques now have at least one semantic edge.
+- Found real sourcing without inventing anything: extended the existing
+  APT29/SolarWinds discovery chain (T1078 -> T1057 -> T1083, using
+  sources already verified real via the structural graph's MITRE
+  citations); fetched Mandiant's UNC3524/"Eye Spy on Your Email" report
+  directly, which explicitly narrates ingress tool transfer (QUIETEXIT
+  backdoor) enabling SAM/LSA credential dumping via `reg save`; used
+  Trend Micro's Pawn Storm Dec 2020 report (co-cited across
+  T1059.001/T1105/T1547.001 for APT28) for two lower-confidence
+  (0.65) edges, honestly scored lower because the exact mechanism
+  couldn't be independently confirmed beyond co-citation.
+- **Found and fixed a real error while sourcing the new work**: fetching
+  the full Volexity "Nearest Neighbor Attack" report (needed to source
+  a new T1078 -> T1003.002 edge) showed the previously-committed
+  APT28 T1059.001 -> T1021.001 edge had the causality backwards. The
+  actual documented sequence is RDP-into-a-pivot-host first, then the
+  PowerShell Wi-Fi enumeration script runs from that foothold - not
+  PowerShell enabling RDP as originally modeled. Reversed the edge to
+  T1021.001 -> T1059.001, corrected the T1078 -> T1021.001 edge's
+  evidence text (the RDP hop is into the intermediate organization's
+  pivot host, not directly into the ultimate target), and updated both
+  affected case files (T1021.001, T1059.001) with an explicit
+  correction note rather than silently overwriting them. This was
+  already pushed to origin/main before the error was caught - the fix
+  is a new commit, not a rewrite of history.
+- Added a new edge (`T1078 -> T1003.002`, APT28, confidence 0.85) for
+  the second, distinct use of Valid Accounts in the Nearest Neighbor
+  incident (Wi-Fi credentials into the target, separate from the
+  earlier RDP credentials into the pivot host) - documented as two
+  edges from the same T1078 node rather than inventing per-instance
+  nodes, with the simplification called out explicitly in
+  T1003.002's case file.
+- Wrote 4 new docs/attack-patterns/ case files (T1003.002, T1057,
+  T1105, T1547.001) and updated 3 existing ones (T1078, T1021.001,
+  T1059.001, T1083) whose edges changed.
+- Ran end-to-end: 26 nodes, 70 edges (37 USES_TECHNIQUE, 17 HAS_TACTIC,
+  10 CAUSALLY_ENABLES, 6 TEMPORALLY_PRECEDES).
+- Next: cross-group comparison edges; consider deeper sourcing for the
+  0.65-confidence tier if time allows; then the Graph RAG query layer.

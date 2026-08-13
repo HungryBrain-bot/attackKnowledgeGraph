@@ -9,7 +9,11 @@ programs) documents the group enumerating file systems to locate
 precondition for, the archiving step that follows. Earlier vendor
 reporting (McAfee, ClearSky, ESET, all 2020) independently documents the
 same discovery-then-archive pattern across separate Lazarus campaigns,
-which is what makes this a repeated behavior rather than a one-off.
+which is what makes this a repeated behavior rather than a one-off. For
+APT29's SolarWinds intrusion, four reports on that same incident co-cite
+T1083 alongside T1057 (Process Discovery), consistent with the group
+running both discovery techniques as a paired survey step after gaining
+privileged access.
 
 ## The Present Problem
 Discovery techniques generate a huge volume of benign-looking activity
@@ -22,9 +26,10 @@ escalate.
 
 ## How This Graph Models It
 - Node: `T1083` (Technique), tactic `discovery`.
-- Edge: `T1083 --TEMPORALLY_PRECEDES--> T1560.001` (Archive via
-  Utility), `group_context: Lazarus Group`, confidence 0.75,
-  sample_size 4.
+- Edges: `T1057 --TEMPORALLY_PRECEDES--> T1083` (APT29, confidence 0.7,
+  sample_size 4, in) and `T1083 --TEMPORALLY_PRECEDES--> T1560.001`
+  (Archive via Utility, Lazarus Group, confidence 0.75, sample_size 4,
+  out).
 
 ## Evidence and Sources
 - CISA AA24-207A (Aug 2024): archiving "relevant files" into RAR
@@ -33,9 +38,15 @@ escalate.
   2020: three independent vendor reports co-citing both T1083 and
   T1560.001 for Lazarus, corroborating the pattern outside of the CISA
   advisory.
+- Volexity SolarWinds, UK NSCS Russia SolarWinds April 2021, NSA Joint
+  Advisory SVR SolarWinds April 2021, Mandiant UNC2452 APT29 April 2022:
+  four reports on the SolarWinds intrusion co-citing T1057 and T1083 for
+  APT29.
 
 ## What This Enables
 "File/directory discovery confirmed for a suspected Lazarus intrusion -
 should this be escalated as a precursor to data staging?" The edge gives
 a query layer a concrete, four-source-backed basis for answering yes,
-rather than treating discovery as noise.
+rather than treating discovery as noise. For APT29, "process discovery
+just fired - is file/directory discovery likely next?" resolves to yes,
+with the SolarWinds intrusion as the documented basis.
