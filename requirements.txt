@@ -2,4 +2,5 @@ networkx>=3.2
 mitreattack-python>=3.0
 pyvis>=0.3
 anthropic>=0.40
+openai>=3.0
 python-dotenv>=1.0

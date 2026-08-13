@@ -72,12 +72,41 @@ switching providers once a second one is actually implemented.
 - Adding a real second provider is genuinely scoped to: implement
   `LLMProvider.generate()` for that vendor's SDK, done - `rag.py` and
   `ask.py` need zero changes.
-- The two stubs are honest about their state: importing and
-  instantiating `OpenAIProvider`/`KimiProvider` works (so code that
-  enumerates `PROVIDERS` doesn't break), but any actual `generate()`
-  call fails loudly and immediately, with a message pointing at exactly
-  what unblocks it.
+- The remaining stub is honest about its state: importing and
+  instantiating `KimiProvider` works (so code that enumerates
+  `PROVIDERS` doesn't break), but any actual `generate()` call fails
+  loudly and immediately, with a message pointing at exactly what
+  unblocks it.
 - This is more structure than the current one-vendor reality strictly
   needs, by design and by explicit request - worth remembering if this
   project's scope discipline is ever being re-audited, so it doesn't get
   incorrectly flagged as accidental complexity.
+
+## Update, 2026-08-13 - OpenAIProvider implemented
+`OpenAIProvider` moved from stub to real implementation once an
+`OPENAI_API_KEY` was available to test against - no new decision here,
+just the "Alternatives considered" caveat above (don't implement against
+an unverifiable, untested API shape) no longer applying once a key
+existed. Notable in how it was implemented, not just that it was:
+- The installed `openai` SDK (v3.0.0) is well past this project's
+  training-data knowledge of that library, so the implementation was
+  written by installing the package and reading its actual source
+  (`_client.py`, `types/responses/response.py`,
+  `types/shared/chat_model.py`) rather than from memory - same "verify,
+  don't assume" discipline this project already applies to CTI sourcing.
+- Uses the Responses API (`client.responses.create`, `response.output_text`)
+  rather than Chat Completions - confirmed as the interface the
+  installed SDK's own types are built around, not assumed to still be
+  the older shape.
+- Model default is `gpt-5.1` - confirmed real against the SDK's own
+  `ChatModel` type, but deliberately not the newest-looking entries
+  (`gpt-5.6-sol`/`-terra`/`-luna`) since no public documentation was
+  found disambiguating what each is for. Guessing among three
+  undocumented names would have been exactly the kind of invented-data
+  mistake this project's conventions exist to prevent. `OPENAI_MODEL`
+  remains the override for whoever verifies that disambiguation later.
+- Verified end-to-end against the real API before being called done:
+  a direct `OpenAIProvider().generate(...)` call, and a full
+  `query.rag.answer(..., provider=get_provider("openai"))` call using
+  real T1059.001/APT29 facts - both returned correct, correctly-cited
+  answers, not just "didn't raise an exception."

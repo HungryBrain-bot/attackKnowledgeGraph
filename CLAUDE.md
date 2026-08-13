@@ -30,8 +30,8 @@ against real, cited sources.
   graph; `retrieval.py` traverses it for one technique's structural
   usage and directly-connected semantic edges (pure Python, no LLM);
   `llm_provider.py` defines the vendor-agnostic `LLMProvider` interface
-  (`ClaudeProvider` implemented, `OpenAIProvider`/`KimiProvider`
-  stubbed - see "Adding an LLM Provider" below); `rag.py` sends the
+  (`ClaudeProvider` and `OpenAIProvider` implemented, `KimiProvider`
+  still stubbed - see "Adding an LLM Provider" below); `rag.py` sends the
   retrieved facts plus the question to whichever provider is configured,
   constrained by a system prompt to formatting only - LLM does not
   originate facts; `ask.py` is the CLI entry point
@@ -132,10 +132,13 @@ not a rewrite. To add one:
    in `.env`, or pass `provider=YourProvider()` directly to
    `rag.answer()`.
 
-`OpenAIProvider` and `KimiProvider` already exist as stubs (implement
-the interface, `generate()` raises `NotImplementedError` naming exactly
-what's missing) - wiring either up for real is steps 1-2 above once an
-API key exists, not new design work.
+`OpenAIProvider` is implemented for real (Responses API, model default
+`gpt-5.1`, override via `OPENAI_MODEL`) now that an `OPENAI_API_KEY` is
+configured. `KimiProvider` still exists as a stub (implements the
+interface, `generate()` raises `NotImplementedError` naming exactly
+what's missing) - wiring it up for real is steps 1-2 above once a key
+exists, not new design work. Set `LLM_PROVIDER=openai` in `.env` to make
+OpenAI the default instead of Claude.
 
 ## Current status
 
@@ -179,20 +182,29 @@ Phase 1 structural graph and Phase 2 semantic edges.
   verified end-to-end against the real graph (technique-only and
   technique+group filtered, plus the not-in-graph error case).
   `llm_provider.py` defines the `LLMProvider` interface; `ClaudeProvider`
-  (calls `claude-opus-5` via the Anthropic SDK, `python-dotenv`-loaded
-  `.env` for `ANTHROPIC_API_KEY`, gitignored) is the one working
-  implementation, `OpenAIProvider`/`KimiProvider` are stubs (see "Adding
-  an LLM Provider" above). `rag.py` system-prompts whichever provider is
-  configured to answer only from the retrieved facts block and cite
-  sources. **Not live-tested against the real API this session** - no
-  Anthropic credentials are configured on this machine (checked: no
-  `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` env vars, no `ant auth`
-  profile - `ant` on this machine resolves to Apache Ant, not the
-  Anthropic CLI). Confirmed the failure mode is the SDK's own clean
-  "could not resolve authentication method" error at client
-  construction, unchanged after the provider refactor - not a bug in
-  this project's code - re-verify the actual answer quality once a key
-  is available.
+  (`claude-opus-5` via the Anthropic SDK) and `OpenAIProvider`
+  (`gpt-5.1` via the OpenAI SDK's Responses API, `.responses.create` /
+  `.output_text`) are both real implementations now, `KimiProvider` is
+  still a stub (see "Adding an LLM Provider" above). Both providers read
+  their API key from `python-dotenv`-loaded `.env` (gitignored -
+  `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`). `rag.py` system-prompts
+  whichever provider is configured (default: Claude, via `LLM_PROVIDER`)
+  to answer only from the retrieved facts block and cite sources.
+  **`OpenAIProvider` is live-tested and verified**: a direct
+  `generate()` call and a full `rag.answer()` call with real T1059.001/
+  APT29 facts both returned correct, correctly-cited answers. **Claude
+  is still not live-tested** - no Anthropic credentials are configured
+  on this machine (checked: no `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN`
+  env vars, no `ant auth` profile - `ant` on this machine resolves to
+  Apache Ant, not the Anthropic CLI). Confirmed the failure mode is the
+  SDK's own clean "could not resolve authentication method" error at
+  client construction, not a bug in this project's code - re-verify once
+  an Anthropic key is available. `OpenAIProvider` was implemented by
+  installing `openai` (v3.0.0) and reading its actual source rather than
+  from training-data memory of an older SDK shape - see
+  docs/decisions/004-llm-provider-abstraction.md's 2026-08-13 update for
+  what that involved, including why the model default is `gpt-5.1` and
+  not one of the newer, undocumented `gpt-5.6-*` variants.
 - `.claude/skills/fetch-test-logs/` - a data-fetching skill + script for
   real Atomic Red Team-simulated EVTX/JSON logs
   ([arniki/atomic-evtx](https://github.com/arniki/atomic-evtx)), cross-

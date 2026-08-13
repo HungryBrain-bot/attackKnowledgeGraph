@@ -264,3 +264,40 @@
   else yet.
 - No sub-agent built for this, per instruction - just the skill and the
   script.
+
+## 2026-08-13 - OpenAIProvider implemented
+
+- User supplied an `OPENAI_API_KEY` and asked to store it locally,
+  gitignored - written to `.env` (already git-ignored, verified with
+  `git check-ignore`), never echoed back or logged elsewhere.
+- Implemented `OpenAIProvider.generate()` for real, closing the stub
+  left in place by the LLM provider abstraction session. The installed
+  `openai` package is v3.0.0 - far past what training-data knowledge of
+  that SDK covers - so rather than guess at a shape, installed it and
+  read the actual source (`_client.py`'s constructor for env-var API
+  key resolution, `types/responses/response.py` for `output_text` and
+  `status`, `types/shared/chat_model.py` for real model IDs). Uses the
+  Responses API (`client.responses.create`, not the older Chat
+  Completions shape).
+- Model default: `gpt-5.1` - confirmed real against the SDK's own type
+  definitions, but deliberately not the newest-looking undated entries
+  (`gpt-5.6-sol`/`-terra`/`-luna`) since no public documentation
+  distinguishes what each is for. Guessing among three undocumented
+  names would have been exactly the kind of invented-data mistake this
+  project's conventions exist to prevent - `OPENAI_MODEL` is there for
+  whoever verifies that disambiguation later.
+- Verified against the real API before calling it done, not just
+  "didn't throw": a direct `OpenAIProvider().generate(...)` call
+  returned the expected short reply, and a full
+  `query.rag.answer(question, facts, provider=get_provider("openai"))`
+  call using real T1059.001/APT29 graph facts returned a correct,
+  correctly-cited answer - confirming the whole provider abstraction
+  works with a second real vendor now, not just in theory.
+- Added `openai>=3.0` to requirements.txt. Confirmed the default
+  provider (Claude, via `get_provider()` with no `LLM_PROVIDER` set) is
+  unchanged.
+- Updated docs/decisions/004-llm-provider-abstraction.md with a dated
+  addendum (not a new ADR - no new decision was made, this was already
+  scoped as "implement `generate()`, done" in the original decision) and
+  CLAUDE.md's provider descriptions to reflect `OpenAIProvider` as
+  implemented, not stubbed.

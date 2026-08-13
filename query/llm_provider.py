@@ -19,6 +19,7 @@ from abc import ABC, abstractmethod
 
 import anthropic
 from dotenv import load_dotenv
+from openai import OpenAI
 
 load_dotenv()
 
@@ -74,21 +75,38 @@ class ClaudeProvider(LLMProvider):
 
 
 class OpenAIProvider(LLMProvider):
-    """Not implemented - no OPENAI_API_KEY is configured for this project
-    yet. Stubbed so the interface and PROVIDERS registry are complete;
-    implementing this is limited to installing the `openai` package and
-    filling in generate() (chat.completions.create or the Responses API)
-    once a key exists - see CLAUDE.md's "Adding an LLM Provider"."""
+    """OpenAI, via the official `openai` SDK's Responses API
+    (`client.responses.create` - the interface the installed SDK's own
+    types are built around; `chat.completions` still exists but
+    `responses` is the current one). Model default is `gpt-5.1`: real
+    and unambiguous (confirmed against the installed SDK's own
+    `ChatModel` type), not necessarily the newest available - the
+    installed SDK also lists undated `gpt-5.6-sol`/`-terra`/`-luna`
+    variants with no public documentation found distinguishing their
+    intended use, so this deliberately doesn't guess among them. Override
+    with the `OPENAI_MODEL` env var."""
 
     def __init__(self, model: str | None = None):
-        self.model = model or os.environ.get("OPENAI_MODEL")
+        self.model = model or os.environ.get("OPENAI_MODEL", "gpt-5.1")
+        self._client = OpenAI()
 
     def generate(self, prompt: str, *, system: str | None = None) -> str:
-        raise NotImplementedError(
-            "OpenAIProvider is a stub - no OPENAI_API_KEY is configured for "
-            "this project. Implement generate() with the `openai` SDK once "
-            "a key is available; see CLAUDE.md's 'Adding an LLM Provider'."
-        )
+        kwargs = dict(model=self.model, input=prompt)
+        if system:
+            kwargs["instructions"] = system
+
+        response = self._client.responses.create(**kwargs)
+
+        if response.status not in (None, "completed"):
+            raise RuntimeError(
+                f"OpenAI response did not complete (status={response.status}, "
+                f"error={response.error})"
+            )
+
+        text = response.output_text
+        if not text:
+            raise RuntimeError(f"No text content in response (status={response.status})")
+        return text
 
 
 class KimiProvider(LLMProvider):
