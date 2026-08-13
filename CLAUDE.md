@@ -69,12 +69,17 @@ flowchart LR
   structural + semantic content for. Pure `query/retrieval.py` - no LLM
   call, deterministic, free. Skips (not fails) if
   `data/test_logs/` hasn't been fetched yet - see `pytest` under Current
-  status.
+  status. `test_adversarial_queries.py` calls the real query pipeline
+  end-to-end (no mocking) with adversarial inputs - see
+  `.claude/skills/ai-security-assessment/`.
 - `docs/attack-patterns/` - one case file per technique (problem,
   mechanics, how the graph models it, sources) - see
   `.claude/skills/attack-pattern-doc/SKILL.md`
 - `docs/decisions/` - ADRs for real engineering decisions - see
   `.claude/skills/build-and-document/SKILL.md`
+- `docs/security-assessment.md` - append-only, dated adversarial-testing
+  findings log for the query layer's prompt-injection surface - see
+  `.claude/skills/ai-security-assessment/SKILL.md`
 - `NOTES-private.md` - gitignored, personal/product-vision notes only.
   Never referenced by anything that gets committed.
 
@@ -252,7 +257,30 @@ Phase 1 structural graph and Phase 2 semantic edges.
   from training-data memory of an older SDK shape - see
   docs/decisions/004-llm-provider-abstraction.md's 2026-08-13 update for
   what that involved, including why the model default is `gpt-5.1` and
-  not one of the newer, undocumented `gpt-5.6-*` variants.
+  not one of the newer, undocumented `gpt-5.6-*` variants. `rag.py`'s
+  prompt structure changed after a real security finding (see below):
+  the FACTS block is now sent as part of the system message, not
+  concatenated with the question into one user-turn string, and
+  `answer()` runs a deterministic `_check_no_ungrounded_techniques()`
+  guard on every response before returning it - see
+  docs/decisions/005-prompt-injection-fact-separation.md.
+- `.claude/skills/ai-security-assessment/` +
+  `tests/test_adversarial_queries.py` + `docs/security-assessment.md` -
+  adversarial testing for the query layer's prompt-injection surface
+  (OWASP LLM01/LLM09, primarily), run for real against the live pipeline,
+  no mocking. **First pass complete and a real finding fixed**: a
+  fact-injection attempt got a fabricated technique/edge/citation
+  (`T1553.002`, which exists nowhere in this project's graph) cited back
+  in the answer as if it were real retrieved data - see
+  docs/security-assessment.md's 2026-08-13 entry for the full transcript
+  and the Opus-reviewed judgment call, and docs/decisions/005 for the
+  fix (prompt-structure separation + the deterministic guard above). The
+  other two cases in the same pass (system-prompt override, system-
+  prompt extraction) held, with extraction logged as a held-but-caveated
+  finding (verbatim reproduction refused, a full paraphrase leaked
+  before the fix - see the entry for detail). `ClaudeProvider` hasn't
+  been run through this assessment yet (no Anthropic key on this
+  machine, same gap as its general live-testing status above).
 - `.claude/skills/fetch-test-logs/` - a data-fetching skill + script for
   real Atomic Red Team-simulated EVTX/JSON logs
   ([arniki/atomic-evtx](https://github.com/arniki/atomic-evtx)), cross-
@@ -306,7 +334,13 @@ sourcing if time allows. Retrieval is single-technique/one-hop by
 design (docs/decisions/003) - multi-hop or multi-entity queries are a
 future extension, not a gap in this pass. `tests/` has its first real
 test (query layer vs. real EVTX telemetry) - extending coverage to
-`graph/`/`query/rag.py` or adding CI is unbuilt.
+`graph/` or adding CI is unbuilt. The `ai-security-assessment` skill's
+first pass covered `OpenAIProvider` only and left two documented open
+items (see docs/security-assessment.md's "Open items for the next
+pass"): re-running the same cases against `ClaudeProvider` once a key
+exists, and the deterministic guard's narrow scope (technique IDs only,
+not fabricated group names/confidence/sources attached to a real
+technique ID).
 
 ## Do NOT
 
