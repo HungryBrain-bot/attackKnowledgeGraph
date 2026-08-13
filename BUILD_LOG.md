@@ -336,3 +336,46 @@
 - No files changed - Claude remains the default provider
   (`LLM_PROVIDER` unset in `.env`); this session only set the env var
   for the test invocations, it wasn't made the persistent default.
+
+## 2026-08-13 - First automated test: query layer vs. real EVTX telemetry
+
+- Wrote `tests/test_query_layer_against_evtx.py`, the project's first
+  automated test - connects the two pieces built earlier this session
+  (the query layer, the fetch-test-logs skill) that had been built in
+  parallel but never actually touched each other. For every locally
+  fetched atomic-evtx scenario: reads the scenario's own `.csv`
+  metadata (real data, not authored by this project) and cross-checks
+  its self-reported `Technique` column against the technique ID our
+  fetch script filed the scenario under; confirms that technique has
+  real structural usage and at least one semantic edge in the graph;
+  confirms `format_context()` produces well-formed output. Deliberately
+  exercises `query/retrieval.py` only, not `rag.py`'s LLM call - a live
+  LLM call would be costly and non-deterministic for an automated test.
+- Installed `pytest` (added to requirements.txt) - this project had no
+  test runner before now. Found an empty, untracked `tests/` directory
+  already present at the repo root (no git history) and used it rather
+  than creating a new one.
+- Fetched a fresh real sample set (`--fetch --tier sanitized --limit 1`,
+  11 techniques) to actually run the test against, rather than writing
+  it against a hypothetical. Verified for real, not just read through:
+  - Full suite passes: 12/12 (11 parametrized scenarios + 1 sanity
+    check that fails loudly, not silently, if fetched coverage ever
+    drops below 5 techniques).
+  - Skip behavior verified by temporarily moving `data/test_logs/`
+    aside and re-running - skips cleanly (not a failure), matching the
+    intended behavior on a fresh clone or in CI before anyone runs the
+    fetch script.
+  - **The CSV cross-check assertion was proven non-decorative**:
+    deliberately corrupted one scenario's `.csv` (changed its
+    self-reported `Technique` field to a fake ID) and confirmed the
+    test actually fails with a clear message, then restored the
+    original file and re-confirmed the suite passes clean again.
+- Left the fetched sample data in place under `data/test_logs/`
+  (gitignored, so this doesn't affect what's committed) specifically so
+  the test suite runs for real rather than sitting permanently skipped
+  - a deliberate change from the fetch-test-logs session, which deleted
+  its test download afterward since nothing depended on it existing yet.
+- Updated CLAUDE.md: added `tests/` to Architecture, updated the
+  fetch-test-logs status bullet (no longer "not wired into anything"),
+  and corrected the stale "Next: live-test query/ask.py" line, which
+  was already partially done as of the previous session's entry.

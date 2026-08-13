@@ -4,3 +4,4 @@ pyvis>=0.3
 anthropic>=0.40
 openai>=3.0
 python-dotenv>=1.0
+pytest>=8.0

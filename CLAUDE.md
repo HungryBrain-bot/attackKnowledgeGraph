@@ -39,6 +39,14 @@ against real, cited sources.
   scope.md for why retrieval is scoped to one technique/one hop and
   entity extraction is plain regex, and docs/decisions/004-llm-provider-
   abstraction.md for the provider interface.
+- `tests/` - `test_query_layer_against_evtx.py` is the project's first
+  automated test: cross-checks real fetched atomic-evtx samples (see
+  `.claude/skills/fetch-test-logs/`) against the graph, confirming a
+  technique real telemetry says happened is one our graph actually has
+  structural + semantic content for. Pure `query/retrieval.py` - no LLM
+  call, deterministic, free. Skips (not fails) if
+  `data/test_logs/` hasn't been fetched yet - see `pytest` under Current
+  status.
 - `docs/attack-patterns/` - one case file per technique (problem,
   mechanics, how the graph models it, sources) - see
   `.claude/skills/attack-pattern-doc/SKILL.md`
@@ -209,28 +217,35 @@ Phase 1 structural graph and Phase 2 semantic edges.
   real Atomic Red Team-simulated EVTX/JSON logs
   ([arniki/atomic-evtx](https://github.com/arniki/atomic-evtx)), cross-
   referenced against `SEED_TECHNIQUES` (11 of 13 have matching samples;
-  T1078 and T1074.002 don't). **This is future test/validation data for
-  the query layer once it exists to be tested - not wired into the
-  query layer, a test suite, or anything else yet.** Verified working
-  end-to-end (real download tested, not just written) - see the skill's
-  own SKILL.md for the tier tradeoffs, including a non-obvious finding:
-  the tier-specific filtering only touches the JSON representations,
-  not the raw EVTX files.
+  T1078 and T1074.002 don't). See the skill's own SKILL.md for the tier
+  tradeoffs, including a non-obvious finding: the tier-specific
+  filtering only touches the JSON representations, not the raw EVTX
+  files. **Now wired into `tests/test_query_layer_against_evtx.py`** -
+  no longer disconnected scaffolding. `data/test_logs/` currently has
+  one fetched scenario per technique (sanitized tier) so the test suite
+  actually runs rather than sitting permanently skipped; re-run
+  `fetch_test_logs.py --fetch` if that data is ever cleared.
+- `pytest` (added to requirements.txt) - first use is the one test
+  above. Run with `python -m pytest tests/` from the repo root.
 - Environment: `mitreattack-python` isn't available as a system package
   on this machine (Kali marks Python as externally managed) - use the
   project's `.venv` (gitignored, `python3 -m venv .venv && .venv/bin/pip
   install -r requirements.txt`) rather than the system `python3` to run
   anything in `graph/` or `query/`.
 
-Next: live-test `query/ask.py` against the real API once a key is
-available, and read the answers for quality/citation accuracy, not just
-confirm the plumbing works. Cross-group comparison edges (e.g.
+Next: `query/ask.py` has been live-tested end-to-end via `OpenAIProvider`
+(three cases: group-filtered, group-inferred, and the no-technique-ID
+error path - see BUILD_LOG.md's 2026-08-13 "Query CLI end-to-end test"
+entry) - Claude itself still hasn't been, since no Anthropic credentials
+are configured on this machine. Cross-group comparison edges (e.g.
 contrasting how APT29 vs APT28 chain the same technique pair) are
 unbuilt; the lowest-confidence edges (0.65 tier - T1547.001's two
 incoming edges, T1059.001->T1105 for APT28) would benefit from deeper
 sourcing if time allows. Retrieval is single-technique/one-hop by
 design (docs/decisions/003) - multi-hop or multi-entity queries are a
-future extension, not a gap in this pass.
+future extension, not a gap in this pass. `tests/` has its first real
+test (query layer vs. real EVTX telemetry) - extending coverage to
+`graph/`/`query/rag.py` or adding CI is unbuilt.
 
 ## Do NOT
 
