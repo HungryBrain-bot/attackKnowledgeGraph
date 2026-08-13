@@ -42,6 +42,41 @@ against real, cited sources.
   not auto-extracted. This is a deliberate scope decision - see
   docs/decisions/ once written.
 
+## Model Usage
+
+Convention for which Claude model tier to use on this project, going
+forward - apply this without being re-asked. Match the tier to the task
+below (via `/model` for the session, or the `model` param on a spawned
+Agent/subagent for a single sub-task) rather than defaulting to one
+model for everything.
+
+- **Haiku 4.5** - mechanical, single-correct-answer tasks: running or
+  re-running `graph/build_graph.py` / `graph/semantic_edges.py` and
+  reading off the node/edge counts, environment/dependency
+  troubleshooting (e.g. venv setup), formatting-only edits, and
+  BUILD_LOG entries whose content has already been decided and just
+  needs writing up. These have an immediately checkable outcome (the
+  script runs or it doesn't; the count matches or it doesn't), so
+  reasoning depth buys little - speed and cost efficiency matter more.
+- **Sonnet 5** (default) - the bulk of the project: implementing graph/
+  ingestion code, drafting attack-pattern case files and ADRs once the
+  supporting sources are already in hand, general web research and
+  citation gathering, routine edits and code review. Sustained
+  engineering work that needs solid reasoning and code quality but isn't
+  the highest-stakes judgment call in the pipeline.
+- **Opus 5** - high-stakes reasoning where a subtle mistake becomes
+  invented or silently-wrong data baked into the graph: assigning
+  `confidence`/`sample_size` to a semantic edge, designing or revising
+  the semantic-edge schema itself (ADR-level architecture decisions),
+  and reconciling conflicting or ambiguous evidence across multiple CTI
+  sources before committing to an edge's direction. This project's
+  credibility rests entirely on "no invented data" (see Conventions
+  below) - these are exactly the spots where a plausible-sounding but
+  wrong inference is hardest to catch after the fact, as happened once
+  already this project (see BUILD_LOG.md, 2026-08-13 entry on the
+  reversed T1059.001/T1021.001 edge) - so the extra reasoning depth is
+  worth the cost here specifically, not project-wide.
+
 ## Current status
 
 Phase: Semantic edges built (Phase 2 of README's scope), on top of the
