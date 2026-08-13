@@ -53,6 +53,9 @@ What this makes easier, harder, or explicitly out of scope now.
   accurate snapshot of the project right now.
 - `BUILD_LOG.md` is **append-only** - one entry per session, dated,
   short: what got built, what's mocked vs real, what's next.
+- After changing `graph/semantic_edges.py` or `graph/seed_config.py`,
+  see the generate-diagrams skill - the data-driven Mermaid diagrams
+  need regenerating so they don't silently drift from the graph.
 
 ## Commit conventions
 
