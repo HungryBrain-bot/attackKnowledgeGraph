@@ -1,0 +1,162 @@
+{
+  "$id": "https://attck-graph.io/ontology/environment_taxonomy/0.3.0",
+  "title": "Environment Taxonomy",
+  "description": "Controlled vocabulary for deployment environments. Layered specificity — query at category, provider, or service level. A relationship observed in one configuration must not silently become universal.",
+  "version": "0.3.0",
+  "last_updated": "2026-05-10",
+
+  "environments": {
+
+    "cloud_identity": {
+      "category": "cloud_identity",
+      "description": "Cloud-based identity and access management environments.",
+      "providers": {
+        "microsoft": {
+          "services": ["azure_ad", "entra_id", "entra_id_b2c", "office_365", "exchange_online"],
+          "deployment_models": ["cloud_native", "hybrid"]
+        },
+        "aws": {
+          "services": ["iam", "cognito", "sso"],
+          "deployment_models": ["cloud_native"]
+        },
+        "gcp": {
+          "services": ["cloud_iam", "workspace"],
+          "deployment_models": ["cloud_native"]
+        }
+      }
+    },
+
+    "cloud_workload": {
+      "category": "cloud_workload",
+      "description": "Cloud compute, container, and serverless workload environments.",
+      "providers": {
+        "microsoft": {
+          "services": ["azure_vm", "azure_kubernetes", "azure_functions", "azure_app_service"],
+          "deployment_models": ["cloud_native", "hybrid"]
+        },
+        "aws": {
+          "services": ["ec2", "eks", "lambda", "ecs"],
+          "deployment_models": ["cloud_native"]
+        },
+        "gcp": {
+          "services": ["gce", "gke", "cloud_run", "cloud_functions"],
+          "deployment_models": ["cloud_native"]
+        }
+      }
+    },
+
+    "on_premises_ad": {
+      "category": "on_premises_ad",
+      "description": "Traditional on-premises Active Directory environments.",
+      "providers": {
+        "microsoft": {
+          "services": ["active_directory", "ldap", "kerberos", "ntlm"],
+          "deployment_models": ["on_premises"]
+        }
+      }
+    },
+
+    "hybrid": {
+      "category": "hybrid",
+      "description": "Environments spanning on-premises and cloud. Critical attack surface for identity-based lateral movement. AiTM attacks commonly target hybrid environments.",
+      "providers": {
+        "microsoft": {
+          "services": ["azure_ad_connect", "adfs", "azure_ad_hybrid", "exchange_hybrid"],
+          "deployment_models": ["hybrid"]
+        }
+      }
+    },
+
+    "saas": {
+      "category": "saas",
+      "description": "Software-as-a-Service application environments. Microsoft 365 BEC attacks operate in this layer.",
+      "providers": {
+        "microsoft": {
+          "services": ["sharepoint_online", "teams", "exchange_online", "onedrive", "microsoft_365"],
+          "deployment_models": ["cloud_native"]
+        },
+        "generic": {
+          "services": ["github", "slack", "salesforce", "google_workspace"],
+          "deployment_models": ["cloud_native"]
+        }
+      }
+    },
+
+    "ot_ics": {
+      "category": "ot_ics",
+      "description": "Operational Technology and Industrial Control System environments.",
+      "providers": {
+        "generic": {
+          "services": ["scada", "plc", "dcs", "hmi", "historian"],
+          "deployment_models": ["on_premises"]
+        }
+      }
+    },
+
+    "endpoint_windows": {
+      "category": "endpoint_windows",
+      "description": "Windows endpoint environments.",
+      "providers": {
+        "microsoft": {
+          "services": ["windows_10", "windows_11", "windows_server_2019", "windows_server_2022"],
+          "deployment_models": ["on_premises", "cloud_native", "hybrid"]
+        }
+      }
+    },
+
+    "endpoint_linux": {
+      "category": "endpoint_linux",
+      "description": "Linux endpoint and server environments.",
+      "providers": {
+        "generic": {
+          "services": ["ubuntu", "rhel", "debian", "centos"],
+          "deployment_models": ["on_premises", "cloud_native"]
+        }
+      }
+    },
+
+    "endpoint_macos": {
+      "category": "endpoint_macos",
+      "description": "macOS endpoint environments.",
+      "providers": {
+        "generic": {
+          "services": ["macos_ventura", "macos_sonoma"],
+          "deployment_models": ["on_premises", "cloud_native"]
+        }
+      }
+    },
+
+    "mobile": {
+      "category": "mobile",
+      "description": "Mobile device environments.",
+      "providers": {
+        "generic": {
+          "services": ["android", "ios"],
+          "deployment_models": ["cloud_native"]
+        }
+      }
+    },
+
+    "container": {
+      "category": "container",
+      "description": "Container orchestration environments.",
+      "providers": {
+        "generic": {
+          "services": ["kubernetes", "docker", "containerd"],
+          "deployment_models": ["cloud_native", "on_premises", "hybrid"]
+        }
+      }
+    },
+
+    "network_perimeter": {
+      "category": "network_perimeter",
+      "description": "Network edge and perimeter environments.",
+      "providers": {
+        "generic": {
+          "services": ["vpn", "firewall", "proxy", "load_balancer", "dns"],
+          "deployment_models": ["on_premises", "hybrid"]
+        }
+      }
+    }
+  }
+}

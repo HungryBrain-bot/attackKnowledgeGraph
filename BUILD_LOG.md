@@ -693,3 +693,62 @@
 - No functional or code change - this entry exists specifically so this
   gap has an honest, dated record of being considered and consciously
   deferred this session, not silently carried forward or forgotten.
+
+## 2026-08-13 - v0.3.0 edge schema folded into the future-ingestion design doc
+
+- **Documentation-only addition - no code or data changes.** Confirmed
+  by scope: only `docs/future/multi-agent-ingestion.md`, five new files
+  under the new `docs/future/schema_reference/` directory, CLAUDE.md, the
+  `scale-to-continuous-ingestion` skill, and this file changed. Nothing
+  under `graph/`, `query/`, or `tests/` was touched, and
+  `graph/semantic_edges.py`'s actual schema (`type`, `confidence`,
+  `sample_size`, `citation`) is unchanged.
+- Six files were supplied for this session, all originally from
+  Downloads: `edge_schema_0.3.0.json` (the full JSON Schema),
+  `relationship_types.json` (12-type controlled vocabulary),
+  `objective_taxonomy.json`, `environment_taxonomy.json`,
+  `edge_schema_changelog.md` (version history + design reasoning, 0.1.0
+  through planned 0.4.0), and `edge_T1059.001_PRECEDES_T1003.json` (a
+  populated example edge instance).
+- **The example edge instance was excluded and not saved anywhere in
+  this repo.** It cited a Mandiant report - "Cloud Threat Activity
+  Report," report ID `MANDIANT-2023-017` - that does not exist. This was
+  flagged going into the session; independently re-verified before
+  writing anything into a permanent doc, not just taken on the word it
+  was given: two web searches (for the exact report title, and
+  separately for the report ID) returned nothing matching - only
+  Mandiant's real, differently-named M-Trends 2023 report turned up.
+  Neither the fixture file nor any of its specific numbers
+  (`sample_size: 14`, `confidence: 0.82`, its observation counts, its
+  dwell-time statistics) are referenced anywhere in this repo, including
+  as a labeled-fictional "example" - the design doc's new section
+  explains this exclusion explicitly rather than silently dropping the
+  file, and shows the schema's shape in prose instead of a populated
+  instance.
+- Added a new "Schema design reference: v0.3.0" section to
+  `docs/future/multi-agent-ingestion.md` covering: the 12-type controlled
+  relationship vocabulary as the eventual superset of today's 2 types
+  (`TEMPORALLY_PRECEDES`, `CAUSALLY_ENABLES`); the schema's core
+  principle that `confidence.score` is computed by a deterministic
+  function of qualitative inputs, never produced directly by an LLM -
+  explicitly framed as a formalization of what `semantic_edges.py`
+  already does informally today (human-scored against docs/decisions/
+  002's literal definitions), not a new idea; `observed_in` storing only
+  ATT&CK group IDs, never names, to avoid alias staleness - flagged as a
+  real improvement worth adopting once this project scales past its
+  current 3 fixed seed groups, where that staleness risk doesn't yet
+  exist; and the staging-graph -> validated -> live-graph promotion gate
+  as the eventual formalized replacement for today's "hand-author
+  directly, a human already validated it by writing it" approach. A
+  leading "current vs. future state" line makes explicit that adopting
+  any of this now would violate this project's own Code Review
+  Standards ("don't add complexity ahead of an observed need").
+- Updated CLAUDE.md's Current status (the existing multi-agent-
+  ingestion.md bullet now also covers `docs/future/schema_reference/`,
+  explicitly marked design-only/unimplemented, with a pointer to the
+  fixture-exclusion reasoning) and the `scale-to-continuous-ingestion`
+  skill (now points to `docs/future/schema_reference/` - starting with
+  the changelog for the reasoning, not just the schema file for the
+  shape - as a second starting design reference alongside the
+  orchestration doc, with the same "first draft to revise, not a
+  finished spec" framing).

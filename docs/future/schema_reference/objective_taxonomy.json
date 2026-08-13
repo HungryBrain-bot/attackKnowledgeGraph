@@ -1,0 +1,121 @@
+{
+  "$id": "https://attck-graph.io/ontology/objective_taxonomy/0.3.0",
+  "title": "Objective Taxonomy",
+  "description": "Controlled vocabulary for attacker operational objectives. Maps to ATT&CK tactics but adds semantic intent that ATT&CK tactics do not capture.",
+  "version": "0.3.0",
+  "last_updated": "2026-05-10",
+
+  "objectives": {
+
+    "GOAL_CREDENTIAL_ACCESS": {
+      "id": "GOAL_CREDENTIAL_ACCESS",
+      "name": "credential_access",
+      "category": "identity_compromise",
+      "description": "Attacker seeks credentials — passwords, tokens, hashes, certificates — to enable further access.",
+      "maps_to_tactic": "TA0006",
+      "related_goals": ["GOAL_LATERAL_MOVEMENT", "GOAL_PRIVILEGE_ESCALATION"],
+      "common_techniques": ["T1003", "T1110", "T1539", "T1550.004", "T1555", "T1558", "T1528"]
+    },
+
+    "GOAL_LATERAL_MOVEMENT": {
+      "id": "GOAL_LATERAL_MOVEMENT",
+      "name": "lateral_movement",
+      "category": "identity_compromise",
+      "description": "Attacker moves from initial foothold to additional systems or identity boundaries.",
+      "maps_to_tactic": "TA0008",
+      "related_goals": ["GOAL_CREDENTIAL_ACCESS", "GOAL_PRIVILEGE_ESCALATION"],
+      "common_techniques": ["T1021", "T1550", "T1534", "T1570"]
+    },
+
+    "GOAL_PRIVILEGE_ESCALATION": {
+      "id": "GOAL_PRIVILEGE_ESCALATION",
+      "name": "privilege_escalation",
+      "category": "privilege_escalation",
+      "description": "Attacker seeks higher-level permissions — local admin, domain admin, global admin in cloud.",
+      "maps_to_tactic": "TA0004",
+      "related_goals": ["GOAL_CREDENTIAL_ACCESS", "GOAL_PERSISTENCE"],
+      "common_techniques": ["T1068", "T1134", "T1484", "T1548"]
+    },
+
+    "GOAL_PERSISTENCE": {
+      "id": "GOAL_PERSISTENCE",
+      "name": "persistence",
+      "category": "persistence",
+      "description": "Attacker establishes mechanisms to maintain access across restarts, credential changes, or detection events.",
+      "maps_to_tactic": "TA0003",
+      "related_goals": ["GOAL_DEFENSE_EVASION"],
+      "common_techniques": ["T1053", "T1543", "T1546", "T1136", "T1098", "T1114.003"]
+    },
+
+    "GOAL_DEFENSE_EVASION": {
+      "id": "GOAL_DEFENSE_EVASION",
+      "name": "defense_evasion",
+      "category": "defense_evasion",
+      "description": "Attacker actively avoids detection by security controls, EDR, SIEM, or analyst review.",
+      "maps_to_tactic": "TA0005",
+      "related_goals": ["GOAL_PERSISTENCE", "GOAL_LATERAL_MOVEMENT"],
+      "common_techniques": ["T1036", "T1055", "T1070", "T1112", "T1562", "T1564.008"]
+    },
+
+    "GOAL_DATA_EXFILTRATION": {
+      "id": "GOAL_DATA_EXFILTRATION",
+      "name": "data_exfiltration",
+      "category": "data_exfiltration",
+      "description": "Attacker collects and transfers sensitive data out of the environment.",
+      "maps_to_tactic": "TA0010",
+      "related_goals": ["GOAL_COLLECTION", "GOAL_CREDENTIAL_ACCESS"],
+      "common_techniques": ["T1048", "T1041", "T1567", "T1537"]
+    },
+
+    "GOAL_COLLECTION": {
+      "id": "GOAL_COLLECTION",
+      "name": "collection",
+      "category": "data_exfiltration",
+      "description": "Attacker gathers data of interest prior to exfiltration.",
+      "maps_to_tactic": "TA0009",
+      "related_goals": ["GOAL_DATA_EXFILTRATION"],
+      "common_techniques": ["T1114", "T1114.002", "T1213", "T1530", "T1560"]
+    },
+
+    "GOAL_IMPACT": {
+      "id": "GOAL_IMPACT",
+      "name": "impact",
+      "category": "impact",
+      "description": "Attacker seeks to disrupt, destroy, or manipulate systems, data, or operations.",
+      "maps_to_tactic": "TA0040",
+      "related_goals": [],
+      "common_techniques": ["T1486", "T1489", "T1491", "T1561"]
+    },
+
+    "GOAL_INITIAL_ACCESS": {
+      "id": "GOAL_INITIAL_ACCESS",
+      "name": "initial_access",
+      "category": "persistence",
+      "description": "Attacker gains initial foothold into the target environment.",
+      "maps_to_tactic": "TA0001",
+      "related_goals": ["GOAL_PERSISTENCE", "GOAL_PRIVILEGE_ESCALATION"],
+      "common_techniques": ["T1566", "T1566.002", "T1190", "T1133", "T1078"]
+    },
+
+    "GOAL_EXECUTION": {
+      "id": "GOAL_EXECUTION",
+      "name": "execution",
+      "category": "persistence",
+      "description": "Attacker runs malicious code on a local or remote system.",
+      "maps_to_tactic": "TA0002",
+      "related_goals": ["GOAL_PERSISTENCE", "GOAL_DEFENSE_EVASION"],
+      "common_techniques": ["T1059", "T1059.001", "T1053", "T1203", "T1569"]
+    }
+  },
+
+  "categories": {
+    "identity_compromise":  "Goals related to obtaining or abusing credentials and identity.",
+    "data_exfiltration":    "Goals related to collecting and stealing data.",
+    "persistence":          "Goals related to maintaining access and executing code.",
+    "privilege_escalation": "Goals related to gaining elevated permissions.",
+    "defense_evasion":      "Goals related to avoiding detection.",
+    "impact":               "Goals related to disruption, destruction, or manipulation.",
+    "reconnaissance":       "Goals related to information gathering.",
+    "resource_development": "Goals related to building attack infrastructure."
+  }
+}

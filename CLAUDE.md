@@ -313,7 +313,19 @@ Phase 1 structural graph and Phase 2 semantic edges.
   pursue this, not routine build sessions) is the only thing that
   changes that. Also linked from README's new "Future Direction"
   section, explicitly separated from the "Roadmap" section so it can't
-  be mistaken for committed work.
+  be mistaken for committed work. `docs/future/schema_reference/` -
+  **also design-only, unimplemented** - holds a target v0.3.0 edge
+  schema (JSON Schema + relationship-type/objective/environment
+  controlled vocabularies + changelog) that today's actual
+  `graph/semantic_edges.py` flat schema could eventually grow into;
+  summarized in multi-agent-ingestion.md's "Schema design reference"
+  section, which is explicit that adopting it now would violate this
+  project's own Code Review Standards. One fixture file supplied
+  alongside the schema (a populated example edge) was deliberately
+  excluded - it cited a Mandiant report that doesn't exist, verified
+  independently, not just taken on the word it was given - see
+  BUILD_LOG.md's entry for this session for the exclusion reasoning in
+  full.
 - `.claude/skills/fetch-test-logs/` - a data-fetching skill + script for
   real Atomic Red Team-simulated EVTX/JSON logs
   ([arniki/atomic-evtx](https://github.com/arniki/atomic-evtx)), cross-

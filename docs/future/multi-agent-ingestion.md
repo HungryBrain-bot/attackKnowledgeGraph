@@ -160,6 +160,135 @@ gate doesn't reduce that error rate - it multiplies the volume while
 removing the check that catches it, which is a materially worse failure
 mode than the current one, not a scaled-up version of the same risk.
 
+## Schema design reference: v0.3.0 (`docs/future/schema_reference/`)
+
+**Current vs. future state, explicitly**: attck-graph's actual
+`graph/semantic_edges.py` currently uses a simple flat schema (`type`,
+`confidence`, `sample_size`, `citation`) - deliberately, per
+docs/decisions/002-semantic-edge-schema.md. The schema described in this
+section and saved under `docs/future/schema_reference/` is a **target
+for a later phase, not the current implementation**. Adopting it now
+would violate this project's own Code Review Standards (CLAUDE.md:
+"don't add complexity ahead of an observed need") - 16 hand-authored
+edges don't need a JSON Schema, a controlled 12-type vocabulary, or a
+staging/validated promotion pipeline; they need exactly what
+`semantic_edges.py` already gives them. This reference exists purely so
+the target shape is written down for whenever the `scale-to-continuous-
+ingestion` skill's trigger condition is actually met, not as a claim
+that any of it exists today.
+
+Four design reference files are saved under `docs/future/schema_reference/`,
+unimplemented:
+- `edge_schema_0.3.0.json` - the full JSON Schema for a semantic edge at
+  this target maturity level.
+- `relationship_types.json` - the controlled relationship-type
+  vocabulary (below).
+- `objective_taxonomy.json` - a controlled vocabulary of attacker
+  operational objectives (e.g. `GOAL_CREDENTIAL_ACCESS`), mapped to
+  ATT&CK tactics but capturing intent an ATT&CK tactic alone doesn't.
+- `environment_taxonomy.json` - a controlled vocabulary of deployment
+  environments (cloud identity, on-prem AD, hybrid, OT/ICS, etc.), so an
+  edge can record *which* environment a relationship was observed in
+  rather than implying it's universal.
+- `edge_schema_changelog.md` - the version history and, more usefully,
+  the *reasoning* behind each schema decision (0.1.0 through the
+  planned 0.4.0) - the "why," not just the "what changed."
+
+### The controlled relationship-type vocabulary
+
+Today's graph uses exactly 2 semantic edge types, both defined informally
+in `graph/semantic_edges.py`'s docstring: `TEMPORALLY_PRECEDES` and
+`CAUSALLY_ENABLES`. The v0.3.0 schema formalizes a **12-type controlled
+vocabulary** that this project's 2 types are a subset of - the eventual
+superset they could grow into, not a replacement for them:
+`TEMPORALLY_PRECEDES`, `CAUSALLY_ENABLES`, `LOGICALLY_REQUIRES` (a
+harder prerequisite than `CAUSALLY_ENABLES` - "cannot execute without"
+rather than "creates a capability for"), `LIKELY_FOLLOWED_BY` (weaker,
+probabilistic-only successor), `DETECTED_BY`, `MITIGATED_BY`,
+`ATTRIBUTED_TO`, `RELATED_TO` (an explicitly-discouraged catch-all -
+"if used frequently, propose a new specific type instead"), `DELIVERS`,
+`EXPLOITS`, `DROPS`, and `COMMUNICATES_WITH`. Each type in
+`relationship_types.json` declares its own directionality, inverse
+relationship name, and valid source/target entity types (e.g.
+`DETECTED_BY` can only target a `detection` node, never a `technique`) -
+so a future validation step can reject a structurally nonsensical edge
+before it ever reaches a human reviewer.
+
+### Confidence: computed by a deterministic function, never by an LLM directly
+
+The schema's single most important principle, and the one most worth
+preserving explicitly if this project ever does scale: **`confidence.score`
+is the output of a deterministic function of qualitative inputs -
+`f(source_count, corroboration, source_tier, recency, sample_size)` -
+never a number an LLM is simply asked to produce.** Same inputs, same
+score, every time; auditable and reproducible in a way an LLM's
+self-reported confidence estimate never is. This isn't a new idea for
+this project - it's a
+formalization of what `graph/semantic_edges.py` already does informally
+today: `sample_size` is counted directly from a real `sources` list,
+`confidence` is scored by a human against docs/decisions/002's literal
+definition, and the reasoning is written out in the `evidence` field
+rather than presented as a bare number (see docs/decisions/002's
+"`confidence` and `sample_size` are defined literally, not
+statistically"). The v0.3.0 schema's contribution is making that
+principle a structural requirement (`confidence_reasoning` is a
+required, controlled-vocabulary object, not a free-text afterthought)
+rather than a documented-but-informal convention a human happens to
+follow.
+
+### `observed_in`: group IDs only, never names
+
+`observed_in[].group_id` stores only the ATT&CK group ID pattern
+(`G[0-9]{4}`) - never a group name. `edge_schema_changelog.md`'s 0.3.0
+entry explains why this was a breaking change from 0.2.0: "ATT&CK group
+aliases change; IDs do not. Storing names causes staleness." Names are
+resolved at query time from the graph instead. This is a real
+improvement worth adopting if/when this project scales past today's 3
+fixed, unchanging seed groups (`graph/seed_config.py`'s `SEED_GROUPS`
+list) - at 3 groups the staleness risk this design solves for doesn't
+practically exist yet, which is exactly why `semantic_edges.py` doesn't
+need it today either.
+
+### The staging → validated → live-graph promotion gate
+
+The schema's `inference.validation_status` field (`approved` / `pending`
+/ `rejected` / `requires_review`) and `relationship_types.json`'s
+`ingestion_rules` block ("`pending_edges_stored_in`: `staging_graph`",
+"`approved_edges_promoted_to`: `live_graph`") together define an explicit
+promotion gate: an edge exists in a staging graph the moment it's
+proposed, and only moves to the live, query-serving graph after
+`validation_status` reaches `approved`. This is the eventual, formalized
+replacement for today's approach - "hand-author directly into
+`SEMANTIC_EDGES`, no separate staging state, because a human already
+validated it by writing it" - and is the same staging/validated split
+already sketched more generally in this document's "How this maps onto
+`graph/`" section above; the schema just gives it concrete field-level
+shape (`minimum_confidence_score: 0.4`, `ml_inferred_requires_review:
+true`, `llm_assisted_requires_review: true`).
+
+### An illustrative example was deliberately not included
+
+A populated example edge instance was considered for this section and
+explicitly excluded. The example this schema shipped with cited a
+Mandiant report - "Cloud Threat Activity Report," report ID
+`MANDIANT-2023-017` - that does not exist; checked directly (web search
+for both the exact report title and the report ID turned up nothing
+matching, only Mandiant's real, differently-named M-Trends 2023 report).
+Whether that citation was a hallucination or a placeholder never meant
+to be taken as real, it's fabricated evidence, and this project doesn't
+carry fabricated evidence anywhere in the repo, including inside an
+"unbuilt, for reference" document - the "no invented data" convention
+doesn't have a design-only exception. Neither the source fixture file
+nor any of its specific numbers (`sample_size: 14`, `confidence: 0.82`,
+its observation counts, or its dwell-time statistics) are reproduced
+here or anywhere else in this repo. The schema's structure is fully
+documented above in prose, and the real field definitions are in
+`docs/future/schema_reference/edge_schema_0.3.0.json` itself - a
+populated illustrative instance isn't necessary to understand the shape,
+and one built from invented placeholder data would risk being
+mistaken for real evidence later, the exact failure mode this section
+exists to avoid repeating.
+
 ## Why this is deliberately deferred now
 
 Same reasoning as `ingestion/` being an intentionally empty placeholder

@@ -1,0 +1,515 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://attck-graph.io/schemas/edge/0.3.0",
+  "title": "Semantic Edge Schema",
+  "description": "Defines the structure of a semantic edge in the attck-graph knowledge graph. Every edge must pass this schema before ingestion into the live graph.",
+  "type": "object",
+  "required": [
+    "edge_id",
+    "relationship",
+    "confidence",
+    "context",
+    "observed_in",
+    "evidence",
+    "inference",
+    "metadata"
+  ],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "edge_id": {
+      "type": "string",
+      "description": "Globally unique identifier. Format: EDGE_{SOURCE}_{RELATIONSHIP_TYPE}_{TARGET}_{CONTEXT_KEY}",
+      "pattern": "^EDGE_[A-Z0-9._]+_[A-Z_]+_[A-Z0-9._]+_[A-Z0-9_]+$",
+      "examples": ["EDGE_T1059.001_TEMPORALLY_PRECEDES_T1003_AZURE_AD"]
+    },
+
+    "relationship": {
+      "type": "object",
+      "required": ["type", "semantic_category", "source", "target"],
+      "additionalProperties": false,
+      "properties": {
+
+        "type": {
+          "type": "string",
+          "description": "Controlled relationship type. Must exist in ontology/relationship_types.json.",
+          "enum": [
+            "TEMPORALLY_PRECEDES",
+            "CAUSALLY_ENABLES",
+            "LOGICALLY_REQUIRES",
+            "LIKELY_FOLLOWED_BY",
+            "DETECTED_BY",
+            "MITIGATED_BY",
+            "ATTRIBUTED_TO",
+            "RELATED_TO",
+            "DELIVERS",
+            "EXPLOITS",
+            "DROPS",
+            "COMMUNICATES_WITH"
+          ]
+        },
+
+        "semantic_category": {
+          "type": "string",
+          "description": "High-level category. Allows traversal by category without knowing specific relationship types.",
+          "enum": [
+            "procedural_sequence",
+            "causal_dependency",
+            "detection_coverage",
+            "mitigation_coverage",
+            "attribution",
+            "malware_behavior",
+            "lateral_movement_path",
+            "semantic_similarity"
+          ]
+        },
+
+        "human_summary": {
+          "type": "string",
+          "description": "Optional analyst note. Not machine-authoritative. Not used for inference or scoring.",
+          "maxLength": 500
+        },
+
+        "source": {
+          "type": "object",
+          "required": ["entity_id", "entity_type"],
+          "additionalProperties": false,
+          "properties": {
+            "entity_id": {
+              "type": "string",
+              "description": "ATT&CK ID or internal node ID of the source entity.",
+              "examples": ["T1059.001", "G0016", "S0002"]
+            },
+            "entity_type": {
+              "type": "string",
+              "enum": [
+                "technique",
+                "subtechnique",
+                "tactic",
+                "group",
+                "software",
+                "mitigation",
+                "ioc",
+                "detection",
+                "campaign"
+              ]
+            }
+          }
+        },
+
+        "target": {
+          "type": "object",
+          "required": ["entity_id", "entity_type"],
+          "additionalProperties": false,
+          "properties": {
+            "entity_id": {
+              "type": "string",
+              "description": "ATT&CK ID or internal node ID of the target entity.",
+              "examples": ["T1003", "TA0006", "S0002"]
+            },
+            "entity_type": {
+              "type": "string",
+              "enum": [
+                "technique",
+                "subtechnique",
+                "tactic",
+                "group",
+                "software",
+                "mitigation",
+                "ioc",
+                "detection",
+                "campaign"
+              ]
+            }
+          }
+        }
+      }
+    },
+
+    "confidence": {
+      "type": "object",
+      "required": ["score", "method", "sample_size", "last_updated"],
+      "additionalProperties": false,
+      "properties": {
+
+        "score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Confidence score 0.0–1.0. Computed by deterministic function — not by LLM. Scores below 0.4 are rejected at ingestion."
+        },
+
+        "method": {
+          "type": "string",
+          "description": "How confidence was derived. Controls trust tier. Agent supplies this judgment — code computes the final score.",
+          "enum": [
+            "analyst_validated",
+            "peer_reviewed",
+            "ml_inferred",
+            "co_occurrence_stats",
+            "expert_elicitation",
+            "automated_correlation"
+          ]
+        },
+
+        "sample_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of observations. Required — a score without a sample size is epistemically incomplete."
+        },
+
+        "confidence_reasoning": {
+          "type": "object",
+          "description": "Structured qualitative inputs supplied by an analyst or agent. These feed the deterministic scoring function — they are not the score itself.",
+          "additionalProperties": false,
+          "properties": {
+            "basis": {
+              "type": "string",
+              "enum": [
+                "repeated_ir_observation",
+                "single_ir_observation",
+                "threat_report_correlation",
+                "statistical_co_occurrence",
+                "expert_judgment",
+                "automated_inference"
+              ]
+            },
+            "consistency": {
+              "type": "string",
+              "enum": ["high", "medium", "low"]
+            },
+            "analyst_note": {
+              "type": "string",
+              "maxLength": 300,
+              "description": "Free-text note. Not used for inference or scoring."
+            }
+          }
+        },
+
+        "last_updated": {
+          "type": "string",
+          "format": "date",
+          "description": "ISO 8601 date when confidence was last reviewed."
+        }
+      }
+    },
+
+    "context": {
+      "type": "object",
+      "required": ["environment", "objective"],
+      "additionalProperties": false,
+      "properties": {
+
+        "environment": {
+          "type": "object",
+          "required": ["category"],
+          "additionalProperties": false,
+          "properties": {
+            "category": {
+              "type": "string",
+              "enum": [
+                "cloud_identity",
+                "cloud_workload",
+                "on_premises_ad",
+                "hybrid",
+                "ot_ics",
+                "mobile",
+                "endpoint_windows",
+                "endpoint_linux",
+                "endpoint_macos",
+                "network_perimeter",
+                "saas",
+                "container"
+              ]
+            },
+            "provider": {
+              "type": "string",
+              "enum": ["microsoft", "aws", "gcp", "generic", "none"]
+            },
+            "service": {
+              "type": "string",
+              "description": "Specific service. e.g. azure_ad, exchange_online, s3.",
+              "maxLength": 64
+            },
+            "deployment_model": {
+              "type": "string",
+              "enum": ["cloud_native", "hybrid", "on_premises", "unknown"]
+            }
+          }
+        },
+
+        "objective": {
+          "type": "object",
+          "required": ["id", "name", "category"],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^GOAL_[A-Z_]+$",
+              "examples": ["GOAL_CREDENTIAL_ACCESS", "GOAL_LATERAL_MOVEMENT"]
+            },
+            "name": { "type": "string" },
+            "category": {
+              "type": "string",
+              "enum": [
+                "identity_compromise",
+                "data_exfiltration",
+                "persistence",
+                "privilege_escalation",
+                "defense_evasion",
+                "impact",
+                "reconnaissance",
+                "resource_development"
+              ]
+            }
+          }
+        },
+
+        "operational_characteristics": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "stealth_level": {
+              "type": "string",
+              "enum": ["high", "medium", "low"]
+            },
+            "interactive_activity": { "type": "boolean" },
+            "requires_user_context": { "type": "boolean" }
+          }
+        },
+
+        "temporal": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "median_dwell_hours": {
+              "type": "number",
+              "minimum": 0
+            },
+            "std_dev_hours": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Required when median_dwell_hours is present."
+            },
+            "observed_sequence_window_hours": {
+              "type": "object",
+              "required": ["min", "max"],
+              "additionalProperties": false,
+              "properties": {
+                "min": { "type": "number", "minimum": 0 },
+                "max": { "type": "number", "minimum": 0 }
+              }
+            }
+          },
+          "if": { "required": ["median_dwell_hours"] },
+          "then": { "required": ["std_dev_hours"] }
+        }
+      }
+    },
+
+    "observed_in": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Groups where this relationship was observed. IMPORTANT: group_name is NOT stored here. Names are resolved at query time from the graph to prevent staleness.",
+      "items": {
+        "type": "object",
+        "required": ["group_id", "observation_count", "confidence"],
+        "additionalProperties": false,
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "pattern": "^G[0-9]{4}$",
+            "description": "ATT&CK group ID only. Name resolved at query time. Never store names here."
+          },
+          "observation_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Per-group confidence. May differ from aggregate edge confidence."
+          }
+        }
+      }
+    },
+
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Supporting evidence. At least one required for ingestion. The graph must not outrun the evidence register.",
+      "items": {
+        "type": "object",
+        "required": ["evidence_id", "type", "source", "validation"],
+        "additionalProperties": false,
+        "properties": {
+
+          "evidence_id": {
+            "type": "string",
+            "pattern": "^EVIDENCE_[A-Z0-9_]+$",
+            "examples": ["EVIDENCE_MANDIANT_2023_001"]
+          },
+
+          "type": {
+            "type": "string",
+            "enum": [
+              "threat_report",
+              "incident_response",
+              "malware_analysis",
+              "academic_paper",
+              "siem_detection",
+              "sandbox_analysis",
+              "osint"
+            ]
+          },
+
+          "source": {
+            "type": "object",
+            "required": ["organization", "report_title", "publication_year"],
+            "additionalProperties": false,
+            "properties": {
+              "organization": { "type": "string" },
+              "report_title": { "type": "string" },
+              "report_id": { "type": "string" },
+              "publication_year": {
+                "type": "integer",
+                "minimum": 2000,
+                "maximum": 2100
+              },
+              "url": { "type": "string", "format": "uri" },
+              "retrieved_at": { "type": "string", "format": "date-time" }
+            }
+          },
+
+          "validation": {
+            "type": "object",
+            "required": ["validation_status", "validation_confidence"],
+            "additionalProperties": false,
+            "properties": {
+              "validation_status": {
+                "type": "string",
+                "enum": [
+                  "human_validated",
+                  "peer_reviewed",
+                  "automated_only",
+                  "pending_review"
+                ]
+              },
+              "reviewed_by": {
+                "type": "string",
+                "enum": [
+                  "senior_analyst",
+                  "threat_intel_team",
+                  "automated_pipeline",
+                  "external_reviewer"
+                ]
+              },
+              "validation_confidence": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0
+              }
+            }
+          },
+
+          "extracted_relationships": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "inference": {
+      "type": "object",
+      "required": ["generated_by", "components", "reasoning_type", "validation_status"],
+      "additionalProperties": false,
+      "properties": {
+
+        "generated_by": {
+          "type": "string",
+          "enum": [
+            "human_analyst",
+            "hybrid_analysis_pipeline",
+            "ml_pipeline",
+            "graph_correlation_engine",
+            "llm_assisted"
+          ]
+        },
+
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Pipeline components with versions. Required for reproducibility and audit.",
+          "items": {
+            "type": "object",
+            "required": ["name", "version"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "enum": [
+                  "human_cti_analysis",
+                  "graph_correlation_engine",
+                  "ml_sequence_model",
+                  "llm_extractor",
+                  "co_occurrence_analyzer",
+                  "stix_parser"
+                ]
+              },
+              "version": { "type": "string" }
+            }
+          }
+        },
+
+        "reasoning_type": {
+          "type": "string",
+          "enum": [
+            "deterministic",
+            "probabilistic_behavioral_inference",
+            "statistical_correlation",
+            "llm_extraction",
+            "rule_based"
+          ]
+        },
+
+        "validation_status": {
+          "type": "string",
+          "enum": ["approved", "pending", "rejected", "requires_review"],
+          "description": "Only 'approved' edges are ingested into the live graph. All others go to staging."
+        }
+      }
+    },
+
+    "metadata": {
+      "type": "object",
+      "required": ["schema_version", "created_at", "ontology_namespace"],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "examples": ["0.3.0"]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ontology_namespace": {
+          "type": "string",
+          "examples": ["attack.behavior.procedural", "attack.detection.coverage"]
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

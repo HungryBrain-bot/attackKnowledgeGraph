@@ -1,6 +1,6 @@
 ---
 name: scale-to-continuous-ingestion
-description: "Use this skill ONLY on an explicit, real decision to actually pursue multi-agent continuous CTI ingestion - e.g. the project owner explicitly says \"let's build the ingestion pipeline now,\" or there's genuine external interest from someone evaluating this project beyond a portfolio/interview context. Do NOT trigger automatically, as part of routine build sessions, or just because docs/future/multi-agent-ingestion.md exists."
+description: "Use this skill ONLY on an explicit, real decision to actually pursue multi-agent continuous CTI ingestion - e.g. the project owner explicitly says \"let's build the ingestion pipeline now,\" or there's genuine external interest from someone evaluating this project beyond a portfolio/interview context. Do NOT trigger automatically, as part of routine build sessions, or just because docs/future/multi-agent-ingestion.md or docs/future/schema_reference/ exist."
 ---
 
 # Scale to Continuous Ingestion
@@ -26,8 +26,9 @@ keeps it that way until there's a real reason not to.
 - Automatically, on any schedule or file change.
 - As part of a routine build-and-document session, even one that touches
   `graph/semantic_edges.py` or `ingestion/`.
-- Just because `docs/future/multi-agent-ingestion.md` exists and someone
-  is reading it or referencing it in conversation.
+- Just because `docs/future/multi-agent-ingestion.md` or
+  `docs/future/schema_reference/` exist and someone is reading or
+  referencing them in conversation.
 
 If in doubt whether a request rises to this bar, ask rather than assume -
 this is exactly the kind of scope expansion (empty placeholder directory
@@ -36,17 +37,24 @@ expensive to walk back once code exists.
 
 ## What to do when actually triggered
 
-1. **Read `docs/future/multi-agent-ingestion.md` first.** Treat it as a
-   first draft to revise, not a finished spec to implement literally.
-   It was written at a point in time - re-check its assumptions against
+1. **Read `docs/future/multi-agent-ingestion.md` first, then
+   `docs/future/schema_reference/` (starting with
+   `edge_schema_changelog.md` for the reasoning, not just
+   `edge_schema_0.3.0.json` for the shape).** Treat both as a first draft
+   to revise, not a finished spec to implement literally. They were
+   written at a point in time - re-check their assumptions against
    whatever's actually true when this is picked up: are the proposed
    agent roles still the right shape, has the CTI-source landscape
    changed, has the provider landscape changed (new models, new
    grounding/verification tooling that didn't exist when the design was
-   written), does the validation-gate design still hold up. The design
-   doc's own "why deferred" and "validation gate" sections are the parts
-   most likely to need real scrutiny before anything gets built from
-   them - don't skip past them to the agent-role list.
+   written), does the validation-gate design still hold up, does the
+   v0.3.0 relationship-type/objective/environment vocabulary still cover
+   what real CTI sources actually describe or does it need revising
+   before anything's built against it. The orchestration doc's own "why
+   deferred" and "validation gate" sections, and the schema reference's
+   own "Current vs. future state" framing, are the parts most likely to
+   need real scrutiny before anything gets built from them - don't skip
+   past them to the agent-role list or the schema fields.
 2. **Treat this as new engineering work, not a resume of paused work.**
    Follow the `build-and-document` skill's full discipline from the
    start: check CLAUDE.md's current state first, write ADRs for real

@@ -1,0 +1,186 @@
+{
+  "$id": "https://attck-graph.io/ontology/relationship_types/0.3.0",
+  "title": "Relationship Type Vocabulary",
+  "description": "Controlled vocabulary for all semantic edge relationship types. Every type used in an edge must be defined here. No undeclared types accepted.",
+  "version": "0.3.0",
+  "last_updated": "2026-05-10",
+
+  "relationship_types": {
+
+    "TEMPORALLY_PRECEDES": {
+      "id": "TEMPORALLY_PRECEDES",
+      "semantic_category": "procedural_sequence",
+      "description": "Source technique is commonly observed temporally before target technique in the same intrusion.",
+      "directionality": "directed",
+      "inverse": "TEMPORALLY_FOLLOWS",
+      "requires_temporal_context": true,
+      "valid_source_types": ["technique", "subtechnique"],
+      "valid_target_types": ["technique", "subtechnique"],
+      "example": "T1059.001 TEMPORALLY_PRECEDES T1003 in Azure AD intrusions"
+    },
+
+    "CAUSALLY_ENABLES": {
+      "id": "CAUSALLY_ENABLES",
+      "semantic_category": "causal_dependency",
+      "description": "Source technique creates a capability or condition that makes the target technique possible or more effective.",
+      "directionality": "directed",
+      "inverse": "CAUSALLY_ENABLED_BY",
+      "requires_temporal_context": false,
+      "valid_source_types": ["technique", "subtechnique", "software"],
+      "valid_target_types": ["technique", "subtechnique"],
+      "example": "T1078 CAUSALLY_ENABLES T1021 — valid accounts enable remote services"
+    },
+
+    "LOGICALLY_REQUIRES": {
+      "id": "LOGICALLY_REQUIRES",
+      "semantic_category": "causal_dependency",
+      "description": "Source technique cannot execute without the target having occurred first. Hard prerequisite — stronger than CAUSALLY_ENABLES.",
+      "directionality": "directed",
+      "inverse": "LOGICALLY_REQUIRED_BY",
+      "requires_temporal_context": false,
+      "valid_source_types": ["technique", "subtechnique"],
+      "valid_target_types": ["technique", "subtechnique", "tactic"],
+      "example": "T1550.001 LOGICALLY_REQUIRES T1003 — Pass the Hash requires prior credential dumping"
+    },
+
+    "LIKELY_FOLLOWED_BY": {
+      "id": "LIKELY_FOLLOWED_BY",
+      "semantic_category": "procedural_sequence",
+      "description": "Probabilistic successor. Statistically common but without strict temporal or causal dependency. Weaker than TEMPORALLY_PRECEDES.",
+      "directionality": "directed",
+      "inverse": "LIKELY_PRECEDED_BY",
+      "requires_temporal_context": false,
+      "minimum_confidence": 0.5,
+      "valid_source_types": ["technique", "subtechnique"],
+      "valid_target_types": ["technique", "subtechnique"],
+      "example": "T1566 LIKELY_FOLLOWED_BY T1204"
+    },
+
+    "DETECTED_BY": {
+      "id": "DETECTED_BY",
+      "semantic_category": "detection_coverage",
+      "description": "Source technique generates telemetry detected by the target detection rule or data source.",
+      "directionality": "directed",
+      "inverse": "DETECTS",
+      "requires_temporal_context": false,
+      "valid_source_types": ["technique", "subtechnique"],
+      "valid_target_types": ["detection"],
+      "coverage_states": ["FULL", "PARTIAL", "WEAK", "NONE", "UNKNOWN"],
+      "note": "Must include coverage_state and any conditions (licensing, config, browser) as edge attributes.",
+      "example": "T1059.001 DETECTED_BY Sentinel_PowerShell_Anomaly_Rule"
+    },
+
+    "MITIGATED_BY": {
+      "id": "MITIGATED_BY",
+      "semantic_category": "mitigation_coverage",
+      "description": "Source technique is reduced in effectiveness or prevented by the target mitigation.",
+      "directionality": "directed",
+      "inverse": "MITIGATES",
+      "requires_temporal_context": false,
+      "valid_source_types": ["technique", "subtechnique"],
+      "valid_target_types": ["mitigation"],
+      "example": "T1059 MITIGATED_BY M1038"
+    },
+
+    "ATTRIBUTED_TO": {
+      "id": "ATTRIBUTED_TO",
+      "semantic_category": "attribution",
+      "description": "Source entity is attributed to the target threat actor group with a given confidence.",
+      "directionality": "directed",
+      "inverse": "ATTRIBUTED_FROM",
+      "requires_temporal_context": false,
+      "valid_source_types": ["technique", "subtechnique", "software", "campaign"],
+      "valid_target_types": ["group"],
+      "example": "S0154 ATTRIBUTED_TO G0016"
+    },
+
+    "RELATED_TO": {
+      "id": "RELATED_TO",
+      "semantic_category": "semantic_similarity",
+      "description": "Undirected semantic similarity. Use only when no more specific type applies. Use sparingly.",
+      "directionality": "undirected",
+      "inverse": "RELATED_TO",
+      "requires_temporal_context": false,
+      "valid_source_types": ["technique", "subtechnique", "group", "software", "campaign"],
+      "valid_target_types": ["technique", "subtechnique", "group", "software", "campaign"],
+      "note": "Catch-all. If used frequently, propose a new specific type instead."
+    },
+
+    "DELIVERS": {
+      "id": "DELIVERS",
+      "semantic_category": "malware_behavior",
+      "description": "Source entity delivers the target software payload.",
+      "directionality": "directed",
+      "inverse": "DELIVERED_BY",
+      "requires_temporal_context": false,
+      "valid_source_types": ["technique", "subtechnique", "software"],
+      "valid_target_types": ["software"],
+      "example": "T1566.001 DELIVERS S0154"
+    },
+
+    "EXPLOITS": {
+      "id": "EXPLOITS",
+      "semantic_category": "malware_behavior",
+      "description": "Source technique or software exploits a specific vulnerability or weakness.",
+      "directionality": "directed",
+      "inverse": "EXPLOITED_BY",
+      "requires_temporal_context": false,
+      "valid_source_types": ["technique", "subtechnique", "software"],
+      "valid_target_types": ["software", "technique"]
+    },
+
+    "DROPS": {
+      "id": "DROPS",
+      "semantic_category": "malware_behavior",
+      "description": "Source software drops or installs the target software on a compromised system.",
+      "directionality": "directed",
+      "inverse": "DROPPED_BY",
+      "requires_temporal_context": false,
+      "valid_source_types": ["software"],
+      "valid_target_types": ["software"]
+    },
+
+    "COMMUNICATES_WITH": {
+      "id": "COMMUNICATES_WITH",
+      "semantic_category": "malware_behavior",
+      "description": "Source software communicates with target infrastructure or software for C2, exfiltration, or coordination.",
+      "directionality": "directed",
+      "inverse": "RECEIVES_FROM",
+      "requires_temporal_context": false,
+      "valid_source_types": ["software"],
+      "valid_target_types": ["software", "ioc"]
+    }
+  },
+
+  "semantic_categories": {
+    "procedural_sequence":   "Temporal or probabilistic ordering of attacker actions.",
+    "causal_dependency":     "Capability or prerequisite dependencies between techniques.",
+    "detection_coverage":    "Relationships between techniques and the detections that cover them.",
+    "mitigation_coverage":   "Relationships between techniques and controls that reduce effectiveness.",
+    "attribution":           "Links between behaviors and threat actor groups.",
+    "malware_behavior":      "Malware delivery, execution, and C2 behavior.",
+    "lateral_movement_path": "Attacker traversal between systems or identity boundaries.",
+    "semantic_similarity":   "Weak associative relationships without causal or temporal structure."
+  },
+
+  "confidence_methods": {
+    "analyst_validated":     "Score assigned by a human analyst after reviewing evidence.",
+    "peer_reviewed":         "Score reviewed and confirmed by a second analyst.",
+    "ml_inferred":           "Score generated by ML model. Requires human review before approval.",
+    "co_occurrence_stats":   "Score derived from statistical co-occurrence across a dataset.",
+    "expert_elicitation":    "Score derived from structured expert judgment.",
+    "automated_correlation": "Score derived from automated graph correlation. Lower trust."
+  },
+
+  "ingestion_rules": {
+    "minimum_confidence_score":       0.4,
+    "minimum_sample_size":            1,
+    "required_validation_status":     "approved",
+    "ml_inferred_requires_review":    true,
+    "llm_assisted_requires_review":   true,
+    "pending_edges_stored_in":        "staging_graph",
+    "approved_edges_promoted_to":     "live_graph",
+    "score_is_deterministic":         true,
+    "score_computed_by":              "confidence_scoring_function_not_llm"
+  }
+}
