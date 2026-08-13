@@ -40,4 +40,11 @@ Early build - see `BUILD_LOG.md` for session-by-session progress.
 
 ```bash
 pip install -r requirements.txt
+
+# fetch the official MITRE ATT&CK STIX bundle (gitignored, ~48MB, not committed)
+mkdir -p data/raw && curl -o data/raw/enterprise-attack.json \
+  https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json
+
+python -m graph.build_graph      # structural graph -> data/structural_graph.json
+python -m graph.semantic_edges   # + semantic edges -> data/graph_with_semantics.json
 ```

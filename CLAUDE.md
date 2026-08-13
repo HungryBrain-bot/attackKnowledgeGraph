@@ -15,12 +15,17 @@ against real, cited sources.
 
 ## Architecture
 
-- `graph/` - graph construction: nodes (Tactic, Technique, Sub-technique,
-  Group, Software) and edges (structural: HAS_TECHNIQUE, USES_TECHNIQUE;
-  semantic: TEMPORALLY_PRECEDES, CAUSALLY_ENABLES, etc.)
-- `ingestion/` - one-time/manual seed data loading (mitreattack-python
-  for structural data, hand-authored JSON for semantic edges). NOT an
-  automated pipeline in this prototype.
+- `graph/` - graph construction and all edge authoring: `build_graph.py`
+  builds structural nodes/edges (Tactic, Technique, Sub-technique, Group,
+  Software; HAS_TACTIC, USES_TECHNIQUE) from real STIX data via
+  `mitreattack-python`. `semantic_edges.py` hand-authors the semantic
+  edges (TEMPORALLY_PRECEDES, CAUSALLY_ENABLES) directly as Python data
+  in `SEMANTIC_EDGES`, layered onto the structural graph - not JSON, and
+  not routed through `ingestion/`.
+- `ingestion/` - reserved for a future automated CTI ingestion pipeline.
+  Empty in this prototype - no autonomous extraction pipeline is in
+  scope here (see Project, above); all seed data and semantic edges are
+  authored directly in `graph/` instead.
 - `query/` - Graph RAG: traverse graph for a relevant subgraph, LLM
   formats it into a cited natural-language answer. LLM does not
   originate facts.
@@ -40,7 +45,7 @@ against real, cited sources.
   the official `mitreattack-python` library - real, not synthetic.
 - Semantic edges (Phase 2 schema) are hand-authored for the prototype,
   not auto-extracted. This is a deliberate scope decision - see
-  docs/decisions/ once written.
+  docs/decisions/002-semantic-edge-schema.md.
 
 ## Model Usage
 
@@ -82,10 +87,16 @@ model for everything.
 Phase: Semantic edges built (Phase 2 of README's scope), on top of the
 Phase 1 structural graph.
 
-- `data/raw/enterprise-attack.json` - official MITRE ATT&CK STIX bundle,
-  pulled live from MITRE's GitHub repo (not committed - regenerate with
-  the curl command in graph/build_graph.py's module docstring context,
-  or see BUILD_LOG.md).
+- `data/raw/enterprise-attack.json` - official MITRE ATT&CK STIX bundle
+  (not committed - gitignored, ~48MB). Regenerate with:
+  ```
+  mkdir -p data/raw && curl -o data/raw/enterprise-attack.json \
+    https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json
+  ```
+  This is the same URL `mitreattack-python` itself downloads from
+  (verified against the installed library's source, not assumed). Also
+  in README.md's Setup section, since a fresh clone needs this before
+  `graph/build_graph.py` can run.
 - `graph/seed_config.py` - fixed seed set: 3 groups (APT29, APT28,
   Lazarus Group), 13 techniques spanning a full kill chain. See
   docs/decisions/001-seed-scope.md for why these specific groups/
