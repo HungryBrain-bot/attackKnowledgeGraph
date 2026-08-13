@@ -44,7 +44,8 @@ against real, cited sources.
 
 ## Current status
 
-Phase: Structural graph built (Phase 1 of README's scope).
+Phase: Semantic edges built (Phase 2 of README's scope), on top of the
+Phase 1 structural graph.
 
 - `data/raw/enterprise-attack.json` - official MITRE ATT&CK STIX bundle,
   pulled live from MITRE's GitHub repo (not committed - regenerate with
@@ -57,12 +58,34 @@ Phase: Structural graph built (Phase 1 of README's scope).
 - `graph/build_graph.py` - builds a NetworkX MultiDiGraph from real
   STIX data: Technique/Tactic/Group nodes, HAS_TACTIC/USES_TECHNIQUE
   structural edges. Verified output: 26 nodes, 54 edges.
-- `data/structural_graph.json` - serialized graph output (node_link
-  format).
+  `data/structural_graph.json` is its serialized output (node_link
+  format) - left untouched by Phase 2, see docs/decisions/002.
+- `graph/semantic_edges.py` - adds 9 hand-authored, group-scoped
+  TEMPORALLY_PRECEDES/CAUSALLY_ENABLES edges (4 groups of APT29, APT28,
+  and Lazarus Group behavior) on top of the structural graph, each with
+  a real citation, confidence score, and sample_size. Deliberately
+  covers 9 of the 13 seed techniques, not all 13 - only pairs with
+  citable sequencing/causal evidence were included this pass. See
+  docs/decisions/002-semantic-edge-schema.md for the schema decisions
+  (group-scoped, not universal; literal confidence/sample_size
+  definitions) and the module's own docstring for full field docs.
+  Combined output: `data/graph_with_semantics.json`, 26 nodes, 63 edges
+  (37 USES_TECHNIQUE, 17 HAS_TACTIC, 5 CAUSALLY_ENABLES,
+  4 TEMPORALLY_PRECEDES).
+- `docs/attack-patterns/` - 9 case files, one per technique touched by a
+  semantic edge this pass (T1566.001, T1204.002, T1059.001, T1078,
+  T1083, T1021.001, T1560.001, T1074.002, T1071.001).
+- Environment: `mitreattack-python` isn't available as a system package
+  on this machine (Kali marks Python as externally managed) - use the
+  project's `.venv` (gitignored, `python3 -m venv .venv && .venv/bin/pip
+  install -r requirements.txt`) rather than the system `python3` to run
+  anything in `graph/`.
 
-Next: semantic edges (TEMPORALLY_PRECEDES, CAUSALLY_ENABLES, etc.),
-hand-authored per docs/attack-patterns/ case files, then the Graph RAG
-query layer.
+Next: T1003.002, T1057, T1105, and T1547.001 have no semantic edges yet
+(no citable sequencing evidence found this pass - see
+docs/decisions/002); cross-group comparison edges (e.g. contrasting how
+APT29 vs APT28 chain the same technique pair) are also unbuilt. After
+that, the Graph RAG query layer.
 
 ## Do NOT
 

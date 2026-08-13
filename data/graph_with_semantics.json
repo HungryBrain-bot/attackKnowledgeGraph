@@ -1,0 +1,954 @@
+{
+  "directed": true,
+  "multigraph": true,
+  "graph": {},
+  "nodes": [
+    {
+      "node_type": "Technique",
+      "name": "Spearphishing Attachment",
+      "attack_id": "T1566.001",
+      "tactics": [
+        "initial-access"
+      ],
+      "description": "Adversaries may send spearphishing emails with a malicious attachment in an attempt to gain access to victim systems. Spearphishing attachment is a specific variant of spearphishing. Spearphishing attachment is different from other forms of spearphishing in that it employs the use of malware attached to an email. All forms of spearphishing are electronically delivered social engineering targeted at a specific individual, company, or industry. In this scenario, adversaries attach a file to the sp",
+      "id": "T1566.001"
+    },
+    {
+      "node_type": "Tactic",
+      "name": "initial-access",
+      "id": "tactic--initial-access"
+    },
+    {
+      "node_type": "Technique",
+      "name": "Malicious File",
+      "attack_id": "T1204.002",
+      "tactics": [
+        "execution"
+      ],
+      "description": "An adversary may rely upon a user opening a malicious file in order to gain execution. Users may be subjected to social engineering to get them to open a file that will lead to code execution. This user action will typically be observed as follow-on behavior from [Spearphishing Attachment](https://attack.mitre.org/techniques/T1566/001). Adversaries may use several types of files that require a user to execute them, including .doc, .pdf, .xls, .rtf, .scr, .exe, .lnk, .pif, .cpl, .reg, and .iso.(C",
+      "id": "T1204.002"
+    },
+    {
+      "node_type": "Tactic",
+      "name": "execution",
+      "id": "tactic--execution"
+    },
+    {
+      "node_type": "Technique",
+      "name": "PowerShell",
+      "attack_id": "T1059.001",
+      "tactics": [
+        "execution"
+      ],
+      "description": "Adversaries may abuse PowerShell commands and scripts for execution. PowerShell is a powerful interactive command-line interface and scripting environment included in the Windows operating system.(Citation: TechNet PowerShell) Adversaries can use PowerShell to perform a number of actions, including discovery of information and execution of code. Examples include the <code>Start-Process</code> cmdlet which can be used to run an executable and the <code>Invoke-Command</code> cmdlet which runs a co",
+      "id": "T1059.001"
+    },
+    {
+      "node_type": "Technique",
+      "name": "Registry Run Keys / Startup Folder",
+      "attack_id": "T1547.001",
+      "tactics": [
+        "persistence",
+        "privilege-escalation"
+      ],
+      "description": "Adversaries may achieve persistence by adding a program to a startup folder or referencing it with a Registry run key. Adding an entry to the \"run keys\" in the Registry or startup folder will cause the program referenced to be executed when a user logs in.(Citation: Microsoft Run Key) These programs will be executed under the context of the user and will have the account's associated permissions level.\n\nThe following run keys are created by default on Windows systems:\n\n* <code>HKEY_CURRENT_USER\\",
+      "id": "T1547.001"
+    },
+    {
+      "node_type": "Tactic",
+      "name": "persistence",
+      "id": "tactic--persistence"
+    },
+    {
+      "node_type": "Tactic",
+      "name": "privilege-escalation",
+      "id": "tactic--privilege-escalation"
+    },
+    {
+      "node_type": "Technique",
+      "name": "Valid Accounts",
+      "attack_id": "T1078",
+      "tactics": [
+        "stealth",
+        "persistence",
+        "privilege-escalation",
+        "initial-access"
+      ],
+      "description": "Adversaries may obtain and abuse credentials of existing accounts as a means of gaining Initial Access, Persistence, Privilege Escalation, or Defense Evasion. Compromised credentials may be used to bypass access controls placed on various resources on systems within the network and may even be used for persistent access to remote systems and externally available services, such as VPNs, Outlook Web Access, network devices, and remote desktop.(Citation: volexity_0day_sophos_FW) Compromised credent",
+      "id": "T1078"
+    },
+    {
+      "node_type": "Tactic",
+      "name": "stealth",
+      "id": "tactic--stealth"
+    },
+    {
+      "node_type": "Technique",
+      "name": "Security Account Manager",
+      "attack_id": "T1003.002",
+      "tactics": [
+        "credential-access"
+      ],
+      "description": "Adversaries may attempt to extract credential material from the Security Account Manager (SAM) database either through in-memory techniques or through the Windows Registry where the SAM database is stored. The SAM is a database file that contains local accounts for the host, typically those found with the <code>net user</code> command. Enumerating the SAM database requires SYSTEM level access.\n\nA number of tools can be used to retrieve the SAM file through in-memory techniques:\n\n* pwdumpx.exe\n* ",
+      "id": "T1003.002"
+    },
+    {
+      "node_type": "Tactic",
+      "name": "credential-access",
+      "id": "tactic--credential-access"
+    },
+    {
+      "node_type": "Technique",
+      "name": "Process Discovery",
+      "attack_id": "T1057",
+      "tactics": [
+        "discovery"
+      ],
+      "description": "Adversaries may attempt to get information about running processes on a system. Information obtained could be used to gain an understanding of common software/applications running on systems within the network. Administrator or otherwise elevated access may provide better process details. Adversaries may use the information from [Process Discovery](https://attack.mitre.org/techniques/T1057) during automated discovery to shape follow-on behaviors, including whether or not the adversary fully infe",
+      "id": "T1057"
+    },
+    {
+      "node_type": "Tactic",
+      "name": "discovery",
+      "id": "tactic--discovery"
+    },
+    {
+      "node_type": "Technique",
+      "name": "File and Directory Discovery",
+      "attack_id": "T1083",
+      "tactics": [
+        "discovery"
+      ],
+      "description": "Adversaries may enumerate files and directories or may search in specific locations of a host or network share for certain information within a file system. Adversaries may use the information from [File and Directory Discovery](https://attack.mitre.org/techniques/T1083) during automated discovery to shape follow-on behaviors, including whether or not the adversary fully infects the target and/or attempts specific actions.\n\nMany command shell utilities can be used to obtain this information. Exa",
+      "id": "T1083"
+    },
+    {
+      "node_type": "Technique",
+      "name": "Remote Desktop Protocol",
+      "attack_id": "T1021.001",
+      "tactics": [
+        "lateral-movement"
+      ],
+      "description": "Adversaries may use [Valid Accounts](https://attack.mitre.org/techniques/T1078) to log into a computer using the Remote Desktop Protocol (RDP). The adversary may then perform actions as the logged-on user.\n\nRemote desktop is a common feature in operating systems. It allows a user to log into an interactive session with a system desktop graphical user interface on a remote system. Microsoft refers to its implementation of the Remote Desktop Protocol (RDP) as Remote Desktop Services (RDS).(Citatio",
+      "id": "T1021.001"
+    },
+    {
+      "node_type": "Tactic",
+      "name": "lateral-movement",
+      "id": "tactic--lateral-movement"
+    },
+    {
+      "node_type": "Technique",
+      "name": "Web Protocols",
+      "attack_id": "T1071.001",
+      "tactics": [
+        "command-and-control"
+      ],
+      "description": "Adversaries may communicate using application layer protocols associated with web traffic to avoid detection/network filtering by blending in with existing traffic. Commands to the remote system, and often the results of those commands, will be embedded within the protocol traffic between the client and server. \n\nProtocols such as HTTP/S(Citation: CrowdStrike Putter Panda) and WebSocket(Citation: Brazking-Websockets) that carry web traffic may be very common in environments. HTTP/S packets have ",
+      "id": "T1071.001"
+    },
+    {
+      "node_type": "Tactic",
+      "name": "command-and-control",
+      "id": "tactic--command-and-control"
+    },
+    {
+      "node_type": "Technique",
+      "name": "Ingress Tool Transfer",
+      "attack_id": "T1105",
+      "tactics": [
+        "command-and-control"
+      ],
+      "description": "Adversaries may transfer tools or other files from an external system into a compromised environment. Tools or files may be copied from an external adversary-controlled system to the victim network through the command and control channel or through alternate protocols such as [ftp](https://attack.mitre.org/software/S0095). Once present, adversaries may also transfer/spread tools between victim devices within a compromised environment (i.e. [Lateral Tool Transfer](https://attack.mitre.org/techniq",
+      "id": "T1105"
+    },
+    {
+      "node_type": "Technique",
+      "name": "Archive via Utility",
+      "attack_id": "T1560.001",
+      "tactics": [
+        "collection"
+      ],
+      "description": "Adversaries may use utilities to compress and/or encrypt collected data prior to exfiltration. Many utilities include functionalities to compress, encrypt, or otherwise package data into a format that is easier/more secure to transport.\n\nAdversaries may abuse various utilities to compress or encrypt data before exfiltration. Some third party utilities may be preinstalled, such as <code>tar</code> on Linux and macOS or <code>zip</code> on Windows systems. \n\nOn Windows, <code>diantz</code> or <cod",
+      "id": "T1560.001"
+    },
+    {
+      "node_type": "Tactic",
+      "name": "collection",
+      "id": "tactic--collection"
+    },
+    {
+      "node_type": "Technique",
+      "name": "Remote Data Staging",
+      "attack_id": "T1074.002",
+      "tactics": [
+        "collection"
+      ],
+      "description": "Adversaries may stage data collected from multiple systems in a central location or directory on one system prior to Exfiltration. Data may be kept in separate files or combined into one file through techniques such as [Archive Collected Data](https://attack.mitre.org/techniques/T1560). Interactive command shells may be used, and common functionality within [cmd](https://attack.mitre.org/software/S0106) and bash may be used to copy data into a staging location.\n\nIn cloud environments, adversarie",
+      "id": "T1074.002"
+    },
+    {
+      "node_type": "Group",
+      "name": "APT29",
+      "attack_id": "G0016",
+      "aliases": [
+        "APT29",
+        "IRON RITUAL",
+        "IRON HEMLOCK",
+        "NobleBaron",
+        "Dark Halo",
+        "NOBELIUM",
+        "UNC2452",
+        "YTTRIUM",
+        "The Dukes",
+        "Cozy Bear",
+        "CozyDuke",
+        "SolarStorm",
+        "Blue Kitsune",
+        "UNC3524",
+        "Midnight Blizzard"
+      ],
+      "id": "APT29"
+    },
+    {
+      "node_type": "Group",
+      "name": "APT28",
+      "attack_id": "G0007",
+      "aliases": [
+        "APT28",
+        "IRON TWILIGHT",
+        "SNAKEMACKEREL",
+        "Swallowtail",
+        "Group 74",
+        "Sednit",
+        "Sofacy",
+        "Pawn Storm",
+        "Fancy Bear",
+        "STRONTIUM",
+        "Tsar Team",
+        "Threat Group-4127",
+        "TG-4127",
+        "Forest Blizzard",
+        "FROZENLAKE",
+        "GruesomeLarch"
+      ],
+      "id": "APT28"
+    },
+    {
+      "node_type": "Group",
+      "name": "Lazarus Group",
+      "attack_id": "G0032",
+      "aliases": [
+        "Lazarus Group",
+        "Labyrinth Chollima",
+        "HIDDEN COBRA",
+        "Guardians of Peace",
+        "ZINC",
+        "NICKEL ACADEMY",
+        "Diamond Sleet"
+      ],
+      "id": "Lazarus Group"
+    }
+  ],
+  "edges": [
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1566.001",
+      "target": "tactic--initial-access",
+      "key": 0
+    },
+    {
+      "edge_type": "TEMPORALLY_PRECEDES",
+      "group_context": "APT29",
+      "confidence": 0.75,
+      "sample_size": 3,
+      "sources": [
+        "Secureworks IRON HEMLOCK Profile",
+        "ESET T3 Threat Report 2021",
+        "F-Secure The Dukes"
+      ],
+      "evidence": "All three reports describe APT29's phishing chain as a single flow: a spearphishing email carries the malicious attachment, and the victim opening it is what triggers the malicious file. The two techniques are always described together in these reports as sequential steps of one delivery chain; the STIX relationship objects for both T1566.001 and T1204.002 on APT29 cite the same three sources. Ordering here (delivery, then execution) follows directly from what each technique IS, not just co-citation.",
+      "source": "T1566.001",
+      "target": "T1204.002",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1204.002",
+      "target": "tactic--execution",
+      "key": 0
+    },
+    {
+      "edge_type": "CAUSALLY_ENABLES",
+      "group_context": "APT29",
+      "confidence": 0.8,
+      "sample_size": 3,
+      "sources": [
+        "Secureworks IRON HEMLOCK Profile",
+        "ESET T3 Threat Report 2021",
+        "F-Secure The Dukes"
+      ],
+      "evidence": "F-Secure's 'The Dukes' documents APT29 weaponized Office documents whose macros launch a PowerShell-based backdoor (the POSHSPY/PowerDuke lineage) once the user enables content - the malicious file's entire purpose is to hand off to PowerShell. This is a mechanistic causal link (macro spawns the PowerShell process), not just an observed order.",
+      "source": "T1204.002",
+      "target": "T1059.001",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1059.001",
+      "target": "tactic--execution",
+      "key": 0
+    },
+    {
+      "edge_type": "TEMPORALLY_PRECEDES",
+      "group_context": "APT29",
+      "confidence": 0.85,
+      "sample_size": 2,
+      "sources": [
+        "Mandiant UNC2452 APT29 April 2022",
+        "NSA Joint Advisory SVR SolarWinds April 2021"
+      ],
+      "evidence": "Mandiant's UNC2452/APT29 writeup states the group was able to gain Domain Administrator privileges 'less than 12 hours after the initial execution of a phishing payload' - an explicit, quoted timeline claim linking early execution (PowerShell/Cobalt Strike loaders per the same report) to subsequent use of privileged/valid accounts, in a single documented incident (the SolarWinds/SUNBURST intrusion) rather than a generic technique-level inference.",
+      "source": "T1059.001",
+      "target": "T1078",
+      "key": 0
+    },
+    {
+      "edge_type": "CAUSALLY_ENABLES",
+      "group_context": "APT28",
+      "confidence": 0.8,
+      "sample_size": 1,
+      "sources": [
+        "Volexity Nearest Neighbor Attack Nov 2024"
+      ],
+      "evidence": "Volexity's 'Nearest Neighbor Attack' report describes APT28 running a custom PowerShell script on a compromised system to enumerate nearby Wi-Fi networks in range - that reconnaissance is what let them identify and then RDP into the target organization's network via its enterprise Wi-Fi. A single source, but a directly narrated mechanism in one specific, publicly documented intrusion.",
+      "source": "T1059.001",
+      "target": "T1021.001",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1547.001",
+      "target": "tactic--persistence",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1547.001",
+      "target": "tactic--privilege-escalation",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1078",
+      "target": "tactic--stealth",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1078",
+      "target": "tactic--persistence",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1078",
+      "target": "tactic--privilege-escalation",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1078",
+      "target": "tactic--initial-access",
+      "key": 0
+    },
+    {
+      "edge_type": "CAUSALLY_ENABLES",
+      "group_context": "APT28",
+      "confidence": 0.75,
+      "sample_size": 1,
+      "sources": [
+        "Volexity Nearest Neighbor Attack Nov 2024"
+      ],
+      "evidence": "The same Volexity report: the RDP connection into the target organization was only possible because APT28 already held compromised/valid Wi-Fi credentials for that organization. Valid Accounts is a documented precondition for the RDP step in this incident, not a general assumption about RDP.",
+      "source": "T1078",
+      "target": "T1021.001",
+      "key": 0
+    },
+    {
+      "edge_type": "CAUSALLY_ENABLES",
+      "group_context": "APT28",
+      "confidence": 0.65,
+      "sample_size": 1,
+      "sources": [
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021"
+      ],
+      "evidence": "The NSA/CISA/FBI/NCSC joint advisory on APT28's Kubernetes-based brute-force campaign states that after obtaining credentials via brute force, the group used them for 'further network access via remote code execution and lateral movement.' The advisory doesn't name PowerShell specifically for this step, but T1059.001 and T1078 are both attributed to APT28 via this same advisory in MITRE's own relationship data - lower confidence than the other edges here because the causal link is corroborated rather than directly quoted.",
+      "source": "T1078",
+      "target": "T1059.001",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1003.002",
+      "target": "tactic--credential-access",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1057",
+      "target": "tactic--discovery",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1083",
+      "target": "tactic--discovery",
+      "key": 0
+    },
+    {
+      "edge_type": "TEMPORALLY_PRECEDES",
+      "group_context": "Lazarus Group",
+      "confidence": 0.75,
+      "sample_size": 4,
+      "sources": [
+        "McAfee Lazarus Jul 2020",
+        "ClearSky Lazarus Aug 2020",
+        "ESET Lazarus Jun 2020",
+        "CISA AA24-207A Aug 2024"
+      ],
+      "evidence": "CISA AA24-207A describes Lazarus Group collecting 'relevant files' into RAR archives - archiving specific files of interest presupposes having already enumerated them via file/directory discovery. Three earlier vendor reports (McAfee, ClearSky, ESET) co-cite both T1083 and T1560.001 for Lazarus independently of AA24-207A.",
+      "source": "T1083",
+      "target": "T1560.001",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1021.001",
+      "target": "tactic--lateral-movement",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1071.001",
+      "target": "tactic--command-and-control",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1105",
+      "target": "tactic--command-and-control",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1560.001",
+      "target": "tactic--collection",
+      "key": 0
+    },
+    {
+      "edge_type": "TEMPORALLY_PRECEDES",
+      "group_context": "APT29",
+      "confidence": 0.7,
+      "sample_size": 4,
+      "sources": [
+        "Volexity SolarWinds",
+        "UK NSCS Russia SolarWinds April 2021",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
+        "Mandiant UNC2452 APT29 April 2022"
+      ],
+      "evidence": "Four independent reports on the same SolarWinds/APT29 intrusion co-cite both T1560.001 and T1074.002, describing collected data being compressed before being moved to a staging point ahead of exfiltration. Ordering (archive, then stage) follows the natural collection pipeline; the sources confirm both steps occurred in the same intrusion, not an explicit blow-by-blow narration of which came first.",
+      "source": "T1560.001",
+      "target": "T1074.002",
+      "key": 0
+    },
+    {
+      "edge_type": "CAUSALLY_ENABLES",
+      "group_context": "Lazarus Group",
+      "confidence": 0.7,
+      "sample_size": 1,
+      "sources": [
+        "CISA AA24-207A Aug 2024"
+      ],
+      "evidence": "CISA AA24-207A states Lazarus 'typically exfiltrate[s] data to web services such as cloud storage or servers not associated with their primary C2' after archiving it with WinRAR - the archived output is what gets moved out over the web-protocol channel.",
+      "source": "T1560.001",
+      "target": "T1071.001",
+      "key": 0
+    },
+    {
+      "edge_type": "HAS_TACTIC",
+      "source": "T1074.002",
+      "target": "tactic--collection",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Mandiant APT29 Eye Spy Email Nov 22"
+      ],
+      "source": "APT29",
+      "target": "T1003.002",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Mandiant No Easy Breach"
+      ],
+      "source": "APT29",
+      "target": "T1547.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "PWC WellMess July 2020",
+        "F-Secure The Dukes",
+        "UK NSCS Russia SolarWinds April 2021",
+        "FireEye SUNBURST Backdoor December 2020",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
+        "Mandiant No Easy Breach",
+        "Mandiant APT29 Eye Spy Email Nov 22",
+        "Mandiant UNC2452 APT29 April 2022"
+      ],
+      "source": "APT29",
+      "target": "T1105",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "F-Secure The Dukes",
+        "MSTIC NOBELIUM May 2021",
+        "Secureworks IRON HEMLOCK Profile",
+        "ESET T3 Threat Report 2021"
+      ],
+      "source": "APT29",
+      "target": "T1566.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Microsoft Analyzing Solorigate Dec 2020",
+        "Mandiant UNC2452 APT29 April 2022",
+        "CrowdStrike StellarParticle January 2022",
+        "UK NSCS Russia SolarWinds April 2021",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
+        "Mandiant No Easy Breach",
+        "Secureworks IRON HEMLOCK Profile",
+        "Volexity SolarWinds",
+        "ESET T3 Threat Report 2021",
+        "Symantec Seaduke 2015"
+      ],
+      "source": "APT29",
+      "target": "T1059.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "MSTIC NOBELIUM Mar 2021",
+        "Cybersecurity Advisory SVR TTP May 2021",
+        "UK NSCS Russia SolarWinds April 2021",
+        "FireEye SUNBURST Backdoor December 2020",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
+        "Mandiant APT29 Microsoft 365 2022",
+        "Mandiant UNC2452 APT29 April 2022"
+      ],
+      "source": "APT29",
+      "target": "T1078",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "F-Secure The Dukes",
+        "Secureworks IRON HEMLOCK Profile",
+        "ESET T3 Threat Report 2021"
+      ],
+      "source": "APT29",
+      "target": "T1204.002",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "CrowdStrike StellarParticle January 2022",
+        "UK NSCS Russia SolarWinds April 2021",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
+        "Microsoft Deep Dive Solorigate January 2021",
+        "Volexity SolarWinds",
+        "Mandiant UNC2452 APT29 April 2022"
+      ],
+      "source": "APT29",
+      "target": "T1057",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "UK NSCS Russia SolarWinds April 2021",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
+        "CrowdStrike StellarParticle January 2022",
+        "Mandiant UNC2452 APT29 April 2022"
+      ],
+      "source": "APT29",
+      "target": "T1021.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "UK NSCS Russia SolarWinds April 2021",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
+        "Volexity SolarWinds",
+        "Mandiant UNC2452 APT29 April 2022"
+      ],
+      "source": "APT29",
+      "target": "T1083",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "UK NSCS Russia SolarWinds April 2021",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
+        "Volexity SolarWinds",
+        "Mandiant UNC2452 APT29 April 2022"
+      ],
+      "source": "APT29",
+      "target": "T1074.002",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "CrowdStrike StellarParticle January 2022",
+        "UK NSCS Russia SolarWinds April 2021",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
+        "Microsoft Deep Dive Solorigate January 2021",
+        "Volexity SolarWinds",
+        "Mandiant UNC2452 APT29 April 2022"
+      ],
+      "source": "APT29",
+      "target": "T1560.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "UK NSCS Russia SolarWinds April 2021",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
+        "Volexity SolarWinds",
+        "Mandiant UNC2452 APT29 April 2022"
+      ],
+      "source": "APT29",
+      "target": "T1071.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "DOJ GRU Indictment Jul 2018",
+        "Sofacy DealersChoice",
+        "Accenture SNAKEMACKEREL Nov 2018",
+        "Cato LAMEHUG JUL 2025",
+        "Secureworks IRON TWILIGHT Active Measures March 2017",
+        "Securelist Sofacy Feb 2018",
+        "TrendMicro Pawn Storm Dec 2020",
+        "Palo Alto Sofacy 06-2018",
+        "Unit 42 Sofacy Feb 2018"
+      ],
+      "source": "APT28",
+      "target": "T1566.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "TrendMicro Pawn Storm Dec 2020",
+        "Nearest Neighbor Volexity",
+        "Palo Alto Sofacy 06-2018",
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021"
+      ],
+      "source": "APT28",
+      "target": "T1059.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "TrendMicro Pawn Storm Dec 2020"
+      ],
+      "source": "APT28",
+      "target": "T1547.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "\u00dcberwachung APT28 Forfiles June 2015",
+        "DOJ GRU Indictment Jul 2018"
+      ],
+      "source": "APT28",
+      "target": "T1083",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Unit 42 Playbook Dec 2017"
+      ],
+      "source": "APT28",
+      "target": "T1057",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Unit 42 Playbook Dec 2017",
+        "Accenture SNAKEMACKEREL Nov 2018",
+        "TrendMicro Pawn Storm Dec 2020",
+        "Bitdefender APT28 Dec 2015",
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021"
+      ],
+      "source": "APT28",
+      "target": "T1105",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "DOJ GRU Indictment Jul 2018",
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021",
+        "Microsoft STRONTIUM Aug 2019",
+        "Trend Micro Pawn Storm April 2017"
+      ],
+      "source": "APT28",
+      "target": "T1078",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "FireEye APT28",
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021"
+      ],
+      "source": "APT28",
+      "target": "T1071.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021",
+        "Nearest Neighbor Volexity"
+      ],
+      "source": "APT28",
+      "target": "T1560.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Cato LAMEHUG JUL 2025",
+        "Unit 42 Sofacy Feb 2018",
+        "Secureworks IRON TWILIGHT Active Measures March 2017",
+        "Accenture SNAKEMACKEREL Nov 2018"
+      ],
+      "source": "APT28",
+      "target": "T1204.002",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021"
+      ],
+      "source": "APT28",
+      "target": "T1074.002",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Nearest Neighbor Volexity"
+      ],
+      "source": "APT28",
+      "target": "T1021.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Nearest Neighbor Volexity"
+      ],
+      "source": "APT28",
+      "target": "T1003.002",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Kaspersky ThreatNeedle Feb 2021",
+        "McAfee Lazarus Nov 2020",
+        "Qualys LolZarus",
+        "McAfee Bankshot",
+        "McAfee Lazarus Jul 2020",
+        "Lazarus APT January 2022",
+        "ESET Lazarus Jun 2020",
+        "ClearSky Lazarus Aug 2020"
+      ],
+      "source": "Lazarus Group",
+      "target": "T1566.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "TrendMicro macOS Dacls May 2020",
+        "Kaspersky ThreatNeedle Feb 2021",
+        "Novetta Blockbuster",
+        "Novetta Blockbuster Loaders",
+        "McAfee Lazarus Nov 2020",
+        "Qualys LolZarus",
+        "ClearSky Lazarus Aug 2020",
+        "Novetta Blockbuster Destructive Malware",
+        "Google TAG Lazarus Jan 2021",
+        "McAfee Lazarus Jul 2020",
+        "Lazarus APT January 2022",
+        "ESET Lazarus Jun 2020",
+        "ESET Twitter Ida Pro Nov 2021",
+        "SentinelOne Lazarus macOS July 2020"
+      ],
+      "source": "Lazarus Group",
+      "target": "T1105",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Kaspersky ThreatNeedle Feb 2021"
+      ],
+      "source": "Lazarus Group",
+      "target": "T1078",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "McAfee Lazarus Nov 2020",
+        "Google TAG Lazarus Jan 2021",
+        "McAfee Lazarus Jul 2020",
+        "ESET Lazarus Jun 2020",
+        "ClearSky Lazarus Aug 2020"
+      ],
+      "source": "Lazarus Group",
+      "target": "T1059.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "TrendMicro macOS Dacls May 2020",
+        "McAfee Lazarus Nov 2020",
+        "Qualys LolZarus",
+        "ClearSky Lazarus Aug 2020",
+        "McAfee Lazarus Resurfaces Feb 2018",
+        "McAfee Lazarus Jul 2020",
+        "Lazarus APT January 2022",
+        "ESET Lazarus Jun 2020",
+        "ESET Twitter Ida Pro Nov 2021",
+        "SentinelOne Lazarus macOS July 2020"
+      ],
+      "source": "Lazarus Group",
+      "target": "T1071.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "TrendMicro macOS Dacls May 2020",
+        "Novetta Blockbuster",
+        "McAfee GhostSecret",
+        "Novetta Blockbuster Loaders",
+        "McAfee Lazarus Resurfaces Feb 2018",
+        "Lazarus APT January 2022"
+      ],
+      "source": "Lazarus Group",
+      "target": "T1057",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Novetta Blockbuster",
+        "Novetta Blockbuster RATs",
+        "McAfee Lazarus Nov 2020",
+        "McAfee Lazarus Resurfaces Feb 2018",
+        "McAfee Lazarus Jul 2020",
+        "Lazarus APT January 2022",
+        "ESET Lazarus Jun 2020",
+        "ClearSky Lazarus Aug 2020"
+      ],
+      "source": "Lazarus Group",
+      "target": "T1547.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Kaspersky ThreatNeedle Feb 2021",
+        "McAfee Lazarus Nov 2020",
+        "Qualys LolZarus",
+        "McAfee Bankshot",
+        "McAfee Lazarus Jul 2020",
+        "Lazarus APT January 2022",
+        "ESET Lazarus Jun 2020",
+        "ClearSky Lazarus Aug 2020"
+      ],
+      "source": "Lazarus Group",
+      "target": "T1204.002",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Novetta Blockbuster",
+        "McAfee GhostSecret",
+        "McAfee Lazarus Nov 2020",
+        "Qualys LolZarus",
+        "McAfee Lazarus Jul 2020",
+        "Lazarus APT January 2022",
+        "ESET Lazarus Jun 2020",
+        "ClearSky Lazarus Aug 2020"
+      ],
+      "source": "Lazarus Group",
+      "target": "T1083",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "Novetta Blockbuster RATs",
+        "Novetta Blockbuster"
+      ],
+      "source": "Lazarus Group",
+      "target": "T1021.001",
+      "key": 0
+    },
+    {
+      "edge_type": "USES_TECHNIQUE",
+      "sources": [
+        "McAfee Lazarus Jul 2020",
+        "ESET Lazarus Jun 2020",
+        "ClearSky Lazarus Aug 2020",
+        "McAfee Lazarus Nov 2020"
+      ],
+      "source": "Lazarus Group",
+      "target": "T1560.001",
+      "key": 0
+    }
+  ]
+}
