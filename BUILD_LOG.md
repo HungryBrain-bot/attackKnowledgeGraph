@@ -454,3 +454,46 @@
 - Three separate commits (skill; generator + its data-driven output;
   hand-authored structural diagrams) - different provenance, different
   risk if something about any one of them turns out wrong.
+
+## 2026-08-13 - README presentation pass (no functional changes)
+
+- Rewrote README.md's structure following the section patterns from
+  github.com/HungryBrain-bot/opsmind-hackathon's README (structure only,
+  no content borrowed - different project): badges row, a "see it run"
+  proof section before any prose, a comparison table, a working Quick
+  Start, a repository-structure tree, and a versioned Current/Planned
+  roadmap. Confirmed via `git diff --stat` that only `README.md` changed
+  and no code under `graph/`, `query/`, or `tests/` was touched.
+- Added Python/NetworkX/Tests/License badges. The License badge
+  surfaced a real gap: this repo had no LICENSE file, and shipping an
+  "MIT" badge without one would have been an invented claim - flagged
+  to the project owner rather than assumed. Owner chose to add a real
+  MIT `LICENSE` file, so the badge now reflects something real, not a
+  guess.
+- "See it run" section uses an actual captured transcript from running
+  `python -m query.ask "what happens after T1059.001 for APT29?"`
+  (`LLM_PROVIDER=openai`) against the real graph - not a mockup or
+  hand-written example. This is the same case already verified in this
+  file's "Query CLI end-to-end test" entry; re-ran it live rather than
+  copying that entry's prose description, so the README shows the
+  literal terminal output, retrieved-facts block included. No GIF/image
+  tooling was available in this environment, so a real, verifiable text
+  transcript was used instead of a mockup screenshot.
+- Comparison table ("ATT&CK Navigator / static lookup" vs. this project)
+  pulls its four rows directly from four `docs/attack-patterns/*.md`
+  case files' existing "The Present Problem" sections (T1566.001,
+  T1059.001, T1078, T1057) - no new claims written for the table itself.
+- Repository-structure tree mirrors CLAUDE.md's Architecture section
+  bullets exactly (verified against a real `find` of the repo, not
+  reconstructed from memory) so the two documents can't silently drift
+  apart on what the structure actually is.
+- Quick Start's `pytest tests/` step deliberately doesn't promise a
+  fixed pass count, since the EVTX cross-check tests' count depends on
+  how many seed techniques a given checkout has fetched samples for
+  (`fetch_test_logs.py --fetch`) - a fixed number would go stale the
+  moment someone fetches a different subset.
+- Roadmap's "Planned" section pulled straight from this file's own
+  "Next" notes (cross-group comparison edges, KimiProvider, 0.65-tier
+  re-sourcing, multi-hop retrieval, extending test coverage/CI) rather
+  than any broader platform-pitch language - consistent with CLAUDE.md's
+  "Do NOT" section.
