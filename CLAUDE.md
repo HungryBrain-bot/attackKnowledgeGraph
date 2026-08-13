@@ -15,6 +15,29 @@ against real, cited sources.
 
 ## Architecture
 
+Hand-authored pipeline diagram (update by hand when the pipeline
+changes - not touched by `graph/generate_diagrams.py`; see Diagrams
+below for the full auto-generated-vs-hand-authored split):
+
+```mermaid
+flowchart LR
+    STIX["MITRE ATT&CK<br/>STIX bundle"] --> BG["graph/build_graph.py"]
+    BG --> SE["graph/semantic_edges.py"]
+    SE --> GL["query/graph_loader.py"]
+    GL --> RET["query/retrieval.py"]
+    RET --> RAG["query/rag.py"]
+    RAG --> LP["query/llm_provider.py"]
+    LP --> CP["ClaudeProvider"]
+    LP --> OP["OpenAIProvider"]
+    LP --> KP["KimiProvider"]
+    CP --> ASK["query/ask.py (CLI)"]
+    OP --> ASK
+    KP -.-> ASK
+
+    classDef stub stroke-dasharray: 5 5,fill:#eee,color:#888;
+    class KP stub;
+```
+
 - `graph/` - graph construction and all edge authoring: `build_graph.py`
   builds structural nodes/edges (Tactic, Technique, Sub-technique, Group,
   Software; HAS_TACTIC, USES_TECHNIQUE) from real STIX data via
@@ -54,6 +77,23 @@ against real, cited sources.
   `.claude/skills/build-and-document/SKILL.md`
 - `NOTES-private.md` - gitignored, personal/product-vision notes only.
   Never referenced by anything that gets committed.
+
+### Diagrams: auto-generated vs. hand-authored
+
+Two categories, unambiguous by construction (see
+`.claude/skills/generate-diagrams/SKILL.md` for the full contract):
+
+- **Auto-generated** (never hand-edit - rerun `graph/generate_diagrams.py`
+  instead; each lives inside `<!-- BEGIN GENERATED -->` /
+  `<!-- END GENERATED -->` markers): the `## Flow` section in every
+  `docs/attack-patterns/<ID>-*.md` case file, and the kill-chain diagram
+  under README.md's "Technique Relationship Graph" section.
+- **Hand-authored** (update manually when the architecture changes; no
+  `GENERATED` markers, never touched by the script): the system
+  architecture diagram above and in README.md's "Architecture" section,
+  the query-flow sequence diagram in docs/decisions/003-query-layer-
+  scope.md, and the provider-abstraction class diagram in
+  docs/decisions/004-llm-provider-abstraction.md.
 
 ## Conventions
 

@@ -379,3 +379,78 @@
   fetch-test-logs status bullet (no longer "not wired into anything"),
   and corrected the stale "Next: live-test query/ask.py" line, which
   was already partially done as of the previous session's entry.
+
+## 2026-08-13 - Mermaid diagrams, split generated vs. hand-authored
+
+- New skill `.claude/skills/generate-diagrams/SKILL.md`: documents the
+  trigger conditions (`SEMANTIC_EDGES`/`SEED_TECHNIQUES` changes, or an
+  explicit request), the idempotency guarantee, and - the part that
+  actually matters for not breaking this later - an unambiguous
+  auto-generated-vs-hand-authored split enforced by `<!-- BEGIN
+  GENERATED -->`/`<!-- END GENERATED -->` HTML comment markers in the
+  files themselves, not just documented in prose. Added a one-line
+  cross-reference from build-and-document's SKILL.md rather than
+  duplicating the instructions across both files.
+- `graph/generate_diagrams.py`: reads `data/graph_with_semantics.json`
+  (via `query.graph_loader`, reused rather than re-implemented) and
+  writes two kinds of diagram inside those markers - a per-technique
+  Mermaid flowchart of direct semantic edges into each
+  `docs/attack-patterns/<ID>-*.md` file's `## Flow` section, and a
+  master kill-chain diagram (13 techniques, all 16 semantic edges,
+  colored by `group_context`, dashed/solid by edge type) into README's
+  new "Technique Relationship Graph" section.
+- **Found and fixed a real placement bug before calling this done**: the
+  first-run insertion logic put a new `## Flow`/section's GENERATED
+  block immediately after the heading line, which stranded a
+  hand-written intro paragraph I'd pre-placed in README.md *below* the
+  diagram instead of above it. Fixed `_upsert_generated_section()` to
+  insert at the end of the section (after any existing hand-written
+  prose, before the next `## ` heading) instead, and corrected README.md
+  by hand since the already-existing markers meant a re-run wouldn't
+  reorder content around them.
+- **Verified idempotency for real, not just asserted**: snapshotted
+  `docs/attack-patterns/` and `README.md` after a run, ran the generator
+  again, and diffed - `diff -rq` reported zero differences, exit code 0.
+- **Verified the diagram content is correct, not just well-formed**:
+  inspected a multi-edge case file (`T1078`, 5 semantic edges, both
+  incoming and outgoing) and confirmed every edge appeared exactly once
+  with the right direction, group, and confidence; confirmed the
+  README's master diagram has exactly 16 `linkStyle` lines, matching the
+  graph's real semantic edge count.
+- **Validated Mermaid syntax against a real renderer, not just eyeballed
+  it - and caught my own false-positive along the way**: extracted all
+  18 embedded `\`\`\`mermaid` blocks (13 per-technique + kill-chain +
+  architecture + query-flow sequence + provider class diagram).
+  `mermaid.parse()` with a minimal DOM stub cleanly validated the
+  sequence diagram but couldn't get far enough for flowchart/
+  classDiagram (its internal DOMPurify step needs a fuller DOM than the
+  stub provided). Moved to `@mermaid-js/mermaid-cli` for real headless-
+  Chromium rendering - the first attempt silently failed on every block
+  (puppeteer 25.x hard-requires Node ≥22.12, this machine has 20.19.4),
+  but a loop bug in my own check (`$?` after a `| tail -3` pipe captures
+  `tail`'s exit code, not the render command's) made every failure read
+  as `exit:0`. Caught by testing one render directly without the pipe
+  and seeing the real `exit 1`, not by trusting the first "all green"
+  result. Fixed by pinning `@mermaid-js/mermaid-cli@11.4.3` +
+  `puppeteer@23` (compatible with Node 20) - all 18 diagrams then
+  rendered for real, producing non-trivial SVGs (11-35KB, each
+  confirmed to contain the diagram's actual node labels, e.g.
+  `ClaudeProvider` in the provider class diagram's SVG) with correctly-
+  captured exit codes this time, not the masked ones from the first
+  pass.
+- Hand-authored three structural diagrams, none touched by the
+  generator: a system architecture pipeline diagram (STIX bundle through
+  `llm_provider.py`'s branch to Claude/OpenAI/Kimi through the `ask.py`
+  CLI) in both README.md and CLAUDE.md; a query-flow sequence diagram
+  (user question through entity extraction, retrieval, `format_context`,
+  provider `generate()`, cited answer) in
+  docs/decisions/003-query-layer-scope.md; a provider-abstraction class
+  diagram (LLMProvider + its three implementations, Claude/OpenAI real,
+  Kimi stubbed) in docs/decisions/004-llm-provider-abstraction.md.
+- Updated CLAUDE.md's Architecture section with the pipeline diagram and
+  an explicit "Diagrams: auto-generated vs. hand-authored" subsection
+  naming exactly which diagram lives where and in which category,
+  matching the new skill.
+- Three separate commits (skill; generator + its data-driven output;
+  hand-authored structural diagrams) - different provenance, different
+  risk if something about any one of them turns out wrong.

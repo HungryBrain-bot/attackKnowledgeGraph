@@ -47,6 +47,36 @@ gaps from its own training knowledge of ATT&CK. This is Retrieval
 as two genuinely separate steps, not a single opaque LLM call that
 happens to see some graph data.
 
+## Query flow
+
+Hand-authored - depicts call flow, not graph data, so it isn't touched
+by `graph/generate_diagrams.py` (see `.claude/skills/generate-diagrams/`
+for that distinction). Update by hand if the call sequence changes.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Ask as query/ask.py
+    participant Loader as query/graph_loader.py
+    participant Retrieval as query/retrieval.py
+    participant Rag as query/rag.py
+    participant Provider as LLMProvider
+
+    User->>Ask: question (e.g. "what happens after T1059.001 for APT29?")
+    Ask->>Ask: extract_technique_id() / extract_group() (regex, no LLM)
+    Ask->>Loader: load_graph()
+    Loader-->>Ask: combined structural + semantic graph
+    Ask->>Retrieval: get_technique_context(graph, technique_id, group)
+    Retrieval-->>Ask: one technique's facts (structural usage + one-hop semantic edges)
+    Ask->>Retrieval: format_context(context)
+    Retrieval-->>Ask: plain-text facts block
+    Ask->>Rag: answer(question, facts)
+    Rag->>Provider: generate(prompt, system=SYSTEM_PROMPT)
+    Provider-->>Rag: cited natural-language answer
+    Rag-->>Ask: answer
+    Ask-->>User: facts block + cited answer
+```
+
 ## Alternatives considered
 - **LLM-based intent/entity extraction from the question**: rejected -
   technique IDs and group names are already unambiguous strings; an LLM

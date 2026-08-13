@@ -49,6 +49,35 @@ Claude.
 var** (default `"claude"`), giving a config-entry-not-code-change path to
 switching providers once a second one is actually implemented.
 
+## Provider abstraction
+
+Hand-authored - depicts interface/class structure, not graph data, so
+it isn't touched by `graph/generate_diagrams.py` (see `.claude/skills/
+generate-diagrams/` for that distinction). Update by hand as providers
+move from stub to real, or when a new one is added.
+
+```mermaid
+classDiagram
+    class LLMProvider {
+        <<abstract>>
+        +generate(prompt, system) str
+    }
+    class ClaudeProvider {
+        +model = "claude-opus-5"
+        +generate(prompt, system) str
+    }
+    class OpenAIProvider {
+        +model = "gpt-5.1"
+        +generate(prompt, system) str
+    }
+    class KimiProvider {
+        +generate(prompt, system) str
+    }
+    LLMProvider <|-- ClaudeProvider : real, live-tested
+    LLMProvider <|-- OpenAIProvider : real, live-tested
+    LLMProvider <|-- KimiProvider : stub, raises NotImplementedError
+```
+
 ## Alternatives considered
 - **Leave `rag.py` calling `anthropic` directly**: rejected - not because
   it was wrong (it wasn't; this project's LLM usage genuinely is

@@ -17,6 +17,34 @@ cited against real sources) on top, and a small retrieval layer so the
 graph can answer questions like "given this observed technique, what's
 likely next and do we have coverage."
 
+## Architecture
+
+Hand-authored - depicts module/call structure, not graph data, so it
+isn't touched by `graph/generate_diagrams.py` (see `.claude/skills/
+generate-diagrams/`). Update by hand when the pipeline itself changes.
+
+```mermaid
+flowchart LR
+    STIX["MITRE ATT&CK<br/>STIX bundle"] --> BG["graph/build_graph.py"]
+    BG --> SE["graph/semantic_edges.py"]
+    SE --> GL["query/graph_loader.py"]
+    GL --> RET["query/retrieval.py"]
+    RET --> RAG["query/rag.py"]
+    RAG --> LP["query/llm_provider.py"]
+    LP --> CP["ClaudeProvider"]
+    LP --> OP["OpenAIProvider"]
+    LP --> KP["KimiProvider"]
+    CP --> ASK["query/ask.py<br/>(CLI)"]
+    OP --> ASK
+    KP -.-> ASK
+
+    classDef stub stroke-dasharray: 5 5,fill:#eee,color:#888;
+    class KP stub;
+```
+
+*Dashed `KimiProvider` = stub, not yet implemented (see
+docs/decisions/004-llm-provider-abstraction.md).*
+
 ## Scope (honest version)
 
 This is a prototype covering **10-15 techniques across 2-3 threat groups**,
