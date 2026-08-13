@@ -121,3 +121,33 @@
   10 CAUSALLY_ENABLES, 6 TEMPORALLY_PRECEDES).
 - Next: cross-group comparison edges; consider deeper sourcing for the
   0.65-confidence tier if time allows; then the Graph RAG query layer.
+
+## 2026-08-13 - build_graph.py performance/hygiene pass
+
+- Applied fixes from a performance review of graph/build_graph.py -
+  hygiene/readability only, no functional or output change:
+  - Extracted `get_mitre_attack_id(obj)`: an early-exit loop replacing
+    the two separate `next(generator, None)` call sites (group attack_id,
+    technique attack_id) that were pulling the same field out of
+    `external_references` in slightly different ways.
+  - Extracted `extract_sources(technique_usage)`: replaces the inline
+    nested-loop-then-`set()` pattern in the USES_TECHNIQUE edge building
+    with a single set comprehension.
+  - `graph_summary()` now uses `collections.Counter` instead of a
+    manually maintained dict for node/edge type counts.
+  - Added a one-line comment on the `MitreAttackData(str(STIX_PATH))`
+    call noting the full 48MB-bundle-load-per-run is an accepted
+    tradeoff at this prototype's scale (13 seed techniques), not solved
+    preemptively.
+  - Checked whether `json.dump(..., default=str)` is actually needed:
+    ran `json.dumps()` on the graph's `node_link_data()` output without
+    a `default=` fallback and confirmed it serializes cleanly as-is - no
+    custom encoder added, since nothing is actually failing.
+- Verified no behavior change: rebuilt both `data/structural_graph.json`
+  (26 nodes, 54 edges) and `data/graph_with_semantics.json` (26 nodes,
+  70 edges) after the refactor and diffed against the pre-refactor
+  files - byte-identical.
+- Added a "Code Review Standards" section to CLAUDE.md capturing the
+  reusable principle (extract repeated lookup/extraction logic into
+  named helpers, use `Counter` for type-counting, verify before adding
+  complexity) rather than a list of the specific fixes made here.

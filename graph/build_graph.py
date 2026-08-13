@@ -17,6 +17,7 @@ built here - those are hand-authored in graph/semantic_edges.py against
 cited sources, per the project's Phase 2 scope decision.
 """
 import json
+from collections import Counter
 from pathlib import Path
 
 import networkx as nx
@@ -27,7 +28,33 @@ from graph.seed_config import SEED_GROUPS, SEED_TECHNIQUES
 STIX_PATH = Path(__file__).parent.parent / "data" / "raw" / "enterprise-attack.json"
 
 
+def get_mitre_attack_id(obj: dict) -> str | None:
+    """Extracts a STIX object's official ATT&CK ID (e.g. T1059.001, G0016)
+    from its external_references, early-exiting on the first match."""
+    for ref in obj.get("external_references", []):
+        if ref.get("source_name") == "mitre-attack":
+            return ref.get("external_id")
+    return None
+
+
+def extract_sources(technique_usage: dict) -> list[str]:
+    """Extracts citation source names for a group's use of a technique from
+    the relationship object(s) STIX attaches the citation to, deduped via a
+    single set comprehension."""
+    sources = {
+        ref.get("source_name")
+        for rel in technique_usage.get("relationships", [])
+        for ref in rel.get("external_references", [])
+        if ref.get("source_name") not in (None, "mitre-attack")
+    }
+    return sorted(sources) or ["MITRE ATT&CK"]
+
+
 def build_structural_graph() -> nx.MultiDiGraph:
+    # Loads the full ~48MB enterprise STIX bundle into memory on every run
+    # rather than filtering/indexing it first - accepted tradeoff at this
+    # prototype's scale (13 seed techniques); revisit if the seed set ever
+    # grows significantly.
     attack_data = MitreAttackData(str(STIX_PATH))
     g = nx.MultiDiGraph()
 
@@ -57,52 +84,31 @@ def build_structural_graph() -> nx.MultiDiGraph:
     # --- Group nodes + USES_TECHNIQUE edges ---
     for gname, gid in SEED_GROUPS.items():
         group_obj = attack_data.get_object_by_stix_id(gid)
-        ext_refs = group_obj.get("external_references", [])
-        attack_id = next(
-            (r["external_id"] for r in ext_refs if r.get("source_name") == "mitre-attack"),
-            None,
-        )
         g.add_node(
             gname,
             node_type="Group",
             name=gname,
-            attack_id=attack_id,
+            attack_id=get_mitre_attack_id(group_obj),
             aliases=group_obj.get("aliases", []),
         )
 
         used = attack_data.get_techniques_used_by_group(gid)
         for t in used:
-            obj = t["object"]
-            ext_refs = obj.get("external_references", [])
-            t_attack_id = next(
-                (r["external_id"] for r in ext_refs if r.get("source_name") == "mitre-attack"),
-                None,
-            )
+            t_attack_id = get_mitre_attack_id(t["object"])
             if t_attack_id in SEED_TECHNIQUES:
-                # relationship object carries the citation(s) for this usage
-                rel = t.get("relationships", [])
-                sources = []
-                for r in rel:
-                    for ref in r.get("external_references", []):
-                        if ref.get("source_name") not in (None, "mitre-attack"):
-                            sources.append(ref.get("source_name"))
                 g.add_edge(
                     gname,
                     t_attack_id,
                     edge_type="USES_TECHNIQUE",
-                    sources=sorted(set(sources)) or ["MITRE ATT&CK"],
+                    sources=extract_sources(t),
                 )
 
     return g
 
 
 def graph_summary(g: nx.MultiDiGraph) -> str:
-    node_counts = {}
-    for _, data in g.nodes(data=True):
-        node_counts[data["node_type"]] = node_counts.get(data["node_type"], 0) + 1
-    edge_counts = {}
-    for _, _, data in g.edges(data=True):
-        edge_counts[data["edge_type"]] = edge_counts.get(data["edge_type"], 0) + 1
+    node_counts = Counter(data["node_type"] for _, data in g.nodes(data=True))
+    edge_counts = Counter(data["edge_type"] for _, _, data in g.edges(data=True))
     lines = ["Graph summary:", f"  Nodes: {g.number_of_nodes()} total"]
     for k, v in node_counts.items():
         lines.append(f"    {k}: {v}")

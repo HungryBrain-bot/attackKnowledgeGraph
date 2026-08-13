@@ -47,6 +47,29 @@ against real, cited sources.
   not auto-extracted. This is a deliberate scope decision - see
   docs/decisions/002-semantic-edge-schema.md.
 
+## Code Review Standards
+
+Patterns to apply going forward, not a list of past mistakes:
+
+- Extract repeated lookup/extraction logic into a named helper function
+  rather than inlining a generator expression or nested loop in the
+  middle of graph-building code. A helper with a clear name documents
+  intent at the call site and gives the logic one place to fix.
+- Prefer an early-exit loop over `next(generator, default)` for "find
+  the first match" logic - easier to read and to extend if the match
+  condition ever needs to grow past a single comparison.
+- Use `collections.Counter` for type-counting patterns instead of a
+  manually maintained `dict` with `.get(key, 0) + 1`.
+- Don't add complexity (custom JSON encoders, filtering/indexing layers,
+  etc.) to solve a problem that hasn't actually occurred - verify first
+  (e.g. does `json.dumps()` actually fail without a `default=`
+  fallback?) before reaching for a more complex solution.
+- Performance tradeoffs that are fine at the current scale (e.g. loading
+  the full STIX bundle into memory on every run, appropriate for 13 seed
+  techniques) should be left alone, with a one-line comment marking them
+  as an accepted tradeoff and naming the condition that would make them
+  worth revisiting - not solved preemptively.
+
 ## Model Usage
 
 Convention for which Claude model tier to use on this project, going
