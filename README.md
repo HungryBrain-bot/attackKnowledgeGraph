@@ -258,6 +258,20 @@ echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
 .venv/bin/python -m query.ask "what happens after T1059.001 for APT29?"
 ```
 
+## Future Direction
+
+Speculative, not committed - unlike the Roadmap below, nothing here is
+planned work. `graph/semantic_edges.py`'s hand-authored edges don't scale
+to continuous ingestion of daily CTI feed updates; a multi-agent
+orchestration approach (source monitoring, extraction, evidence
+grounding, confidence scoring, and conflict detection roles, gated by
+explicit validation before any agent-proposed edge is trusted at the
+same level as today's manually-cited ones) is sketched at design level
+only in [`docs/future/multi-agent-ingestion.md`](docs/future/multi-agent-ingestion.md).
+It's deliberately deferred for the same reason `ingestion/` is an empty
+placeholder today (docs/decisions/001-seed-scope.md) - see that doc for
+what would actually trigger picking it up.
+
 ## Roadmap
 
 ### Current (Phases 1-3, built)
