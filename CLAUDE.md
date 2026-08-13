@@ -267,6 +267,27 @@ Phase 1 structural graph and Phase 2 semantic edges.
   `fetch_test_logs.py --fetch` if that data is ever cleared.
 - `pytest` (added to requirements.txt) - first use is the one test
   above. Run with `python -m pytest tests/` from the repo root.
+- `.claude/skills/generate-diagrams/` + `graph/generate_diagrams.py` -
+  Mermaid diagrams, split into two categories (see "Diagrams:
+  auto-generated vs. hand-authored" above for the exact list).
+  Auto-generated: a per-technique flow diagram in every
+  `docs/attack-patterns/<ID>-*.md` file's `## Flow` section, and the
+  master kill-chain diagram in README's "Technique Relationship Graph"
+  section - both inside `<!-- BEGIN/END GENERATED -->` markers, rebuilt
+  by `python -m graph.generate_diagrams` whenever `SEMANTIC_EDGES` or
+  `SEED_TECHNIQUES` changes. Hand-authored: the system architecture
+  diagram (README + CLAUDE.md), the query-flow sequence diagram
+  (docs/decisions/003), the provider-abstraction class diagram
+  (docs/decisions/004). **Idempotency verified for real** (ran twice,
+  `diff -rq` showed zero differences) and **every diagram validated
+  against a real renderer**, not just eyeballed - `@mermaid-js/
+  mermaid-cli` pinned to `11.4.3` + `puppeteer@23` (the default install
+  silently fails on this machine's Node 20; puppeteer 25.x requires
+  ≥22.12) rendered all 18 embedded diagrams to non-trivial SVGs. Two
+  real bugs were caught and fixed in the process (a section-insertion
+  placement bug in the generator, and an exit-code-masking bug in the
+  validation script itself) - see BUILD_LOG.md's 2026-08-13 "Mermaid
+  diagrams" entry for both.
 - Environment: `mitreattack-python` isn't available as a system package
   on this machine (Kali marks Python as externally managed) - use the
   project's `.venv` (gitignored, `python3 -m venv .venv && .venv/bin/pip
