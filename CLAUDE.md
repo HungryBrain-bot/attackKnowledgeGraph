@@ -29,12 +29,16 @@ against real, cited sources.
 - `query/` - Graph RAG: `graph_loader.py` loads the pre-built combined
   graph; `retrieval.py` traverses it for one technique's structural
   usage and directly-connected semantic edges (pure Python, no LLM);
-  `rag.py` sends those facts plus the question to Claude, constrained by
-  a system prompt to formatting only - LLM does not originate facts;
-  `ask.py` is the CLI entry point (`python -m query.ask "..."`). See
-  docs/decisions/003-query-layer-scope.md for why retrieval is scoped to
-  one technique/one hop and entity extraction is plain regex, not an
-  LLM call.
+  `llm_provider.py` defines the vendor-agnostic `LLMProvider` interface
+  (`ClaudeProvider` implemented, `OpenAIProvider`/`KimiProvider`
+  stubbed - see "Adding an LLM Provider" below); `rag.py` sends the
+  retrieved facts plus the question to whichever provider is configured,
+  constrained by a system prompt to formatting only - LLM does not
+  originate facts; `ask.py` is the CLI entry point
+  (`python -m query.ask "..."`). See docs/decisions/003-query-layer-
+  scope.md for why retrieval is scoped to one technique/one hop and
+  entity extraction is plain regex, and docs/decisions/004-llm-provider-
+  abstraction.md for the provider interface.
 - `docs/attack-patterns/` - one case file per technique (problem,
   mechanics, how the graph models it, sources) - see
   `.claude/skills/attack-pattern-doc/SKILL.md`
@@ -111,6 +115,28 @@ model for everything.
   reversed T1059.001/T1021.001 edge) - so the extra reasoning depth is
   worth the cost here specifically, not project-wide.
 
+## Adding an LLM Provider
+
+The query layer's LLM call is behind a vendor-agnostic interface
+(`query/llm_provider.py`, see docs/decisions/004-llm-provider-
+abstraction.md) specifically so a new provider is a five-minute addition,
+not a rewrite. To add one:
+
+1. Subclass `LLMProvider` and implement `generate(self, prompt, *,
+   system=None) -> str`. Raise on failure - never return a placeholder
+   or fabricated string.
+2. Add one line to the `PROVIDERS` dict in `query/llm_provider.py`
+   mapping a short name (e.g. `"openai"`) to the class.
+3. That's it - `query/rag.py` and `query/ask.py` need no changes.
+   Selecting the provider is a config change: set `LLM_PROVIDER=<name>`
+   in `.env`, or pass `provider=YourProvider()` directly to
+   `rag.answer()`.
+
+`OpenAIProvider` and `KimiProvider` already exist as stubs (implement
+the interface, `generate()` raises `NotImplementedError` naming exactly
+what's missing) - wiring either up for real is steps 1-2 above once an
+API key exists, not new design work.
+
 ## Current status
 
 Phase: Query layer built (Phase 3 of README's scope), on top of the
@@ -152,17 +178,21 @@ Phase 1 structural graph and Phase 2 semantic edges.
 - `query/` - Graph RAG query layer. `retrieval.py` + `format_context()`
   verified end-to-end against the real graph (technique-only and
   technique+group filtered, plus the not-in-graph error case).
-  `rag.py` calls `claude-opus-5` via the Anthropic SDK
-  (`python-dotenv`-loaded `.env` for `ANTHROPIC_API_KEY`, gitignored),
-  system-prompted to answer only from the retrieved facts block and cite
+  `llm_provider.py` defines the `LLMProvider` interface; `ClaudeProvider`
+  (calls `claude-opus-5` via the Anthropic SDK, `python-dotenv`-loaded
+  `.env` for `ANTHROPIC_API_KEY`, gitignored) is the one working
+  implementation, `OpenAIProvider`/`KimiProvider` are stubs (see "Adding
+  an LLM Provider" above). `rag.py` system-prompts whichever provider is
+  configured to answer only from the retrieved facts block and cite
   sources. **Not live-tested against the real API this session** - no
   Anthropic credentials are configured on this machine (checked: no
   `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` env vars, no `ant auth`
   profile - `ant` on this machine resolves to Apache Ant, not the
   Anthropic CLI). Confirmed the failure mode is the SDK's own clean
-  "could not resolve authentication method" error, not a bug in this
-  project's code - re-verify the actual answer quality once a key is
-  available.
+  "could not resolve authentication method" error at client
+  construction, unchanged after the provider refactor - not a bug in
+  this project's code - re-verify the actual answer quality once a key
+  is available.
 - Environment: `mitreattack-python` isn't available as a system package
   on this machine (Kali marks Python as externally managed) - use the
   project's `.venv` (gitignored, `python3 -m venv .venv && .venv/bin/pip

@@ -192,3 +192,31 @@
 - Next: get a real API key into this environment (or hand the CLI to
   someone who has one) and actually read the model's answers for
   quality and citation accuracy, not just confirm the plumbing runs.
+
+## 2026-08-13 - LLM provider abstraction
+
+- Extracted the query layer's LLM call behind a vendor-agnostic
+  interface: `query/llm_provider.py` defines `LLMProvider` (one
+  abstract method, `generate(prompt, *, system=None) -> str`),
+  `ClaudeProvider` (the working implementation, moved out of `rag.py`
+  unchanged - same model default, adaptive thinking, refusal handling),
+  and `OpenAIProvider`/`KimiProvider` stubs that implement the interface
+  but raise `NotImplementedError` naming exactly what's missing (no API
+  key configured for either yet). `rag.py` now calls
+  `llm_provider.get_provider()` instead of the `anthropic` SDK directly.
+- Wrote docs/decisions/004-llm-provider-abstraction.md, including an
+  explicit note that this is more structure than the current one-vendor
+  reality strictly needs - flagged as a deliberate exception to this
+  project's own Code Review Standards (don't add complexity ahead of an
+  observed need), made because the project owner explicitly asked for a
+  five-minute path to a new provider, not because of a need I inferred
+  myself.
+- Added an "Adding an LLM Provider" section to CLAUDE.md: implement
+  `LLMProvider`, add one line to the `PROVIDERS` dict, done - `rag.py`/
+  `ask.py` need no changes.
+- Verified the refactor didn't change behavior: `PROVIDERS` and
+  `get_provider()` resolve correctly, both stub providers instantiate
+  fine and raise `NotImplementedError` only on `generate()`, and the
+  full `query/ask.py` CLI pipeline still runs through retrieval and
+  fails at the same point (the SDK's clean auth error, no credentials
+  configured on this machine) as before the refactor.
