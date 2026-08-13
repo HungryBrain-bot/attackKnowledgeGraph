@@ -90,7 +90,7 @@ def build_structural_graph() -> nx.MultiDiGraph:
                     gname,
                     t_attack_id,
                     edge_type="USES_TECHNIQUE",
-                    sources=list(set(sources)) or ["MITRE ATT&CK"],
+                    sources=sorted(set(sources)) or ["MITRE ATT&CK"],
                 )
 
     return g

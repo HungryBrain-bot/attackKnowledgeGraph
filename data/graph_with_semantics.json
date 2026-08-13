@@ -599,13 +599,13 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
+        "F-Secure The Dukes",
+        "FireEye SUNBURST Backdoor December 2020",
+        "Mandiant APT29 Eye Spy Email Nov 22",
+        "Mandiant No Easy Breach",
         "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
-        "FireEye SUNBURST Backdoor December 2020",
-        "Mandiant No Easy Breach",
-        "Mandiant APT29 Eye Spy Email Nov 22",
         "PWC WellMess July 2020",
-        "F-Secure The Dukes",
         "UK NSCS Russia SolarWinds April 2021"
       ],
       "source": "APT29",
@@ -615,10 +615,10 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Secureworks IRON HEMLOCK Profile",
         "ESET T3 Threat Report 2021",
+        "F-Secure The Dukes",
         "MSTIC NOBELIUM May 2021",
-        "F-Secure The Dukes"
+        "Secureworks IRON HEMLOCK Profile"
       ],
       "source": "APT29",
       "target": "T1566.001",
@@ -627,15 +627,15 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "ESET T3 Threat Report 2021",
-        "Mandiant UNC2452 APT29 April 2022",
-        "NSA Joint Advisory SVR SolarWinds April 2021",
-        "Symantec Seaduke 2015",
         "CrowdStrike StellarParticle January 2022",
+        "ESET T3 Threat Report 2021",
         "Mandiant No Easy Breach",
+        "Mandiant UNC2452 APT29 April 2022",
         "Microsoft Analyzing Solorigate Dec 2020",
-        "UK NSCS Russia SolarWinds April 2021",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
         "Secureworks IRON HEMLOCK Profile",
+        "Symantec Seaduke 2015",
+        "UK NSCS Russia SolarWinds April 2021",
         "Volexity SolarWinds"
       ],
       "source": "APT29",
@@ -645,12 +645,12 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Mandiant UNC2452 APT29 April 2022",
-        "NSA Joint Advisory SVR SolarWinds April 2021",
         "Cybersecurity Advisory SVR TTP May 2021",
         "FireEye SUNBURST Backdoor December 2020",
         "MSTIC NOBELIUM Mar 2021",
         "Mandiant APT29 Microsoft 365 2022",
+        "Mandiant UNC2452 APT29 April 2022",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
         "UK NSCS Russia SolarWinds April 2021"
       ],
       "source": "APT29",
@@ -661,8 +661,8 @@
       "edge_type": "USES_TECHNIQUE",
       "sources": [
         "ESET T3 Threat Report 2021",
-        "Secureworks IRON HEMLOCK Profile",
-        "F-Secure The Dukes"
+        "F-Secure The Dukes",
+        "Secureworks IRON HEMLOCK Profile"
       ],
       "source": "APT29",
       "target": "T1204.002",
@@ -671,10 +671,10 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Mandiant UNC2452 APT29 April 2022",
-        "NSA Joint Advisory SVR SolarWinds April 2021",
         "CrowdStrike StellarParticle January 2022",
+        "Mandiant UNC2452 APT29 April 2022",
         "Microsoft Deep Dive Solorigate January 2021",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
         "UK NSCS Russia SolarWinds April 2021",
         "Volexity SolarWinds"
       ],
@@ -685,9 +685,9 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
+        "CrowdStrike StellarParticle January 2022",
         "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
-        "CrowdStrike StellarParticle January 2022",
         "UK NSCS Russia SolarWinds April 2021"
       ],
       "source": "APT29",
@@ -697,9 +697,9 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "UK NSCS Russia SolarWinds April 2021",
         "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
+        "UK NSCS Russia SolarWinds April 2021",
         "Volexity SolarWinds"
       ],
       "source": "APT29",
@@ -709,9 +709,9 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "UK NSCS Russia SolarWinds April 2021",
         "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
+        "UK NSCS Russia SolarWinds April 2021",
         "Volexity SolarWinds"
       ],
       "source": "APT29",
@@ -721,10 +721,10 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Mandiant UNC2452 APT29 April 2022",
-        "NSA Joint Advisory SVR SolarWinds April 2021",
         "CrowdStrike StellarParticle January 2022",
+        "Mandiant UNC2452 APT29 April 2022",
         "Microsoft Deep Dive Solorigate January 2021",
+        "NSA Joint Advisory SVR SolarWinds April 2021",
         "UK NSCS Russia SolarWinds April 2021",
         "Volexity SolarWinds"
       ],
@@ -735,9 +735,9 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "UK NSCS Russia SolarWinds April 2021",
         "Mandiant UNC2452 APT29 April 2022",
         "NSA Joint Advisory SVR SolarWinds April 2021",
+        "UK NSCS Russia SolarWinds April 2021",
         "Volexity SolarWinds"
       ],
       "source": "APT29",
@@ -747,15 +747,15 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "TrendMicro Pawn Storm Dec 2020",
-        "Palo Alto Sofacy 06-2018",
+        "Accenture SNAKEMACKEREL Nov 2018",
         "Cato LAMEHUG JUL 2025",
+        "DOJ GRU Indictment Jul 2018",
+        "Palo Alto Sofacy 06-2018",
+        "Securelist Sofacy Feb 2018",
         "Secureworks IRON TWILIGHT Active Measures March 2017",
         "Sofacy DealersChoice",
-        "Unit 42 Sofacy Feb 2018",
-        "Accenture SNAKEMACKEREL Nov 2018",
-        "DOJ GRU Indictment Jul 2018",
-        "Securelist Sofacy Feb 2018"
+        "TrendMicro Pawn Storm Dec 2020",
+        "Unit 42 Sofacy Feb 2018"
       ],
       "source": "APT28",
       "target": "T1566.001",
@@ -764,10 +764,10 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Palo Alto Sofacy 06-2018",
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021",
         "Nearest Neighbor Volexity",
-        "TrendMicro Pawn Storm Dec 2020",
-        "Cybersecurity Advisory GRU Brute Force Campaign July 2021"
+        "Palo Alto Sofacy 06-2018",
+        "TrendMicro Pawn Storm Dec 2020"
       ],
       "source": "APT28",
       "target": "T1059.001",
@@ -785,8 +785,8 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "\u00dcberwachung APT28 Forfiles June 2015",
-        "DOJ GRU Indictment Jul 2018"
+        "DOJ GRU Indictment Jul 2018",
+        "\u00dcberwachung APT28 Forfiles June 2015"
       ],
       "source": "APT28",
       "target": "T1083",
@@ -804,11 +804,11 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
+        "Accenture SNAKEMACKEREL Nov 2018",
+        "Bitdefender APT28 Dec 2015",
         "Cybersecurity Advisory GRU Brute Force Campaign July 2021",
         "TrendMicro Pawn Storm Dec 2020",
-        "Bitdefender APT28 Dec 2015",
-        "Unit 42 Playbook Dec 2017",
-        "Accenture SNAKEMACKEREL Nov 2018"
+        "Unit 42 Playbook Dec 2017"
       ],
       "source": "APT28",
       "target": "T1105",
@@ -817,10 +817,10 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Microsoft STRONTIUM Aug 2019",
-        "Trend Micro Pawn Storm April 2017",
         "Cybersecurity Advisory GRU Brute Force Campaign July 2021",
-        "DOJ GRU Indictment Jul 2018"
+        "DOJ GRU Indictment Jul 2018",
+        "Microsoft STRONTIUM Aug 2019",
+        "Trend Micro Pawn Storm April 2017"
       ],
       "source": "APT28",
       "target": "T1078",
@@ -829,8 +829,8 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "FireEye APT28",
-        "Cybersecurity Advisory GRU Brute Force Campaign July 2021"
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021",
+        "FireEye APT28"
       ],
       "source": "APT28",
       "target": "T1071.001",
@@ -839,8 +839,8 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Nearest Neighbor Volexity",
-        "Cybersecurity Advisory GRU Brute Force Campaign July 2021"
+        "Cybersecurity Advisory GRU Brute Force Campaign July 2021",
+        "Nearest Neighbor Volexity"
       ],
       "source": "APT28",
       "target": "T1560.001",
@@ -849,10 +849,10 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "Cato LAMEHUG JUL 2025",
-        "Unit 42 Sofacy Feb 2018",
         "Accenture SNAKEMACKEREL Nov 2018",
-        "Secureworks IRON TWILIGHT Active Measures March 2017"
+        "Cato LAMEHUG JUL 2025",
+        "Secureworks IRON TWILIGHT Active Measures March 2017",
+        "Unit 42 Sofacy Feb 2018"
       ],
       "source": "APT28",
       "target": "T1204.002",
@@ -888,13 +888,13 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "McAfee Bankshot",
         "ClearSky Lazarus Aug 2020",
-        "McAfee Lazarus Nov 2020",
-        "Lazarus APT January 2022",
-        "Kaspersky ThreatNeedle Feb 2021",
-        "McAfee Lazarus Jul 2020",
         "ESET Lazarus Jun 2020",
+        "Kaspersky ThreatNeedle Feb 2021",
+        "Lazarus APT January 2022",
+        "McAfee Bankshot",
+        "McAfee Lazarus Jul 2020",
+        "McAfee Lazarus Nov 2020",
         "Qualys LolZarus"
       ],
       "source": "Lazarus Group",
@@ -905,19 +905,19 @@
       "edge_type": "USES_TECHNIQUE",
       "sources": [
         "ClearSky Lazarus Aug 2020",
-        "Novetta Blockbuster Loaders",
-        "McAfee Lazarus Nov 2020",
-        "Google TAG Lazarus Jan 2021",
-        "Lazarus APT January 2022",
-        "TrendMicro macOS Dacls May 2020",
-        "Novetta Blockbuster",
-        "Kaspersky ThreatNeedle Feb 2021",
-        "McAfee Lazarus Jul 2020",
-        "SentinelOne Lazarus macOS July 2020",
         "ESET Lazarus Jun 2020",
-        "Qualys LolZarus",
+        "ESET Twitter Ida Pro Nov 2021",
+        "Google TAG Lazarus Jan 2021",
+        "Kaspersky ThreatNeedle Feb 2021",
+        "Lazarus APT January 2022",
+        "McAfee Lazarus Jul 2020",
+        "McAfee Lazarus Nov 2020",
+        "Novetta Blockbuster",
         "Novetta Blockbuster Destructive Malware",
-        "ESET Twitter Ida Pro Nov 2021"
+        "Novetta Blockbuster Loaders",
+        "Qualys LolZarus",
+        "SentinelOne Lazarus macOS July 2020",
+        "TrendMicro macOS Dacls May 2020"
       ],
       "source": "Lazarus Group",
       "target": "T1105",
@@ -936,10 +936,10 @@
       "edge_type": "USES_TECHNIQUE",
       "sources": [
         "ClearSky Lazarus Aug 2020",
-        "McAfee Lazarus Nov 2020",
-        "McAfee Lazarus Jul 2020",
         "ESET Lazarus Jun 2020",
-        "Google TAG Lazarus Jan 2021"
+        "Google TAG Lazarus Jan 2021",
+        "McAfee Lazarus Jul 2020",
+        "McAfee Lazarus Nov 2020"
       ],
       "source": "Lazarus Group",
       "target": "T1059.001",
@@ -949,15 +949,15 @@
       "edge_type": "USES_TECHNIQUE",
       "sources": [
         "ClearSky Lazarus Aug 2020",
-        "McAfee Lazarus Nov 2020",
+        "ESET Lazarus Jun 2020",
         "ESET Twitter Ida Pro Nov 2021",
         "Lazarus APT January 2022",
-        "TrendMicro macOS Dacls May 2020",
         "McAfee Lazarus Jul 2020",
-        "SentinelOne Lazarus macOS July 2020",
-        "ESET Lazarus Jun 2020",
+        "McAfee Lazarus Nov 2020",
+        "McAfee Lazarus Resurfaces Feb 2018",
         "Qualys LolZarus",
-        "McAfee Lazarus Resurfaces Feb 2018"
+        "SentinelOne Lazarus macOS July 2020",
+        "TrendMicro macOS Dacls May 2020"
       ],
       "source": "Lazarus Group",
       "target": "T1071.001",
@@ -966,12 +966,12 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "McAfee GhostSecret",
-        "Novetta Blockbuster Loaders",
         "Lazarus APT January 2022",
-        "TrendMicro macOS Dacls May 2020",
+        "McAfee GhostSecret",
+        "McAfee Lazarus Resurfaces Feb 2018",
         "Novetta Blockbuster",
-        "McAfee Lazarus Resurfaces Feb 2018"
+        "Novetta Blockbuster Loaders",
+        "TrendMicro macOS Dacls May 2020"
       ],
       "source": "Lazarus Group",
       "target": "T1057",
@@ -981,13 +981,13 @@
       "edge_type": "USES_TECHNIQUE",
       "sources": [
         "ClearSky Lazarus Aug 2020",
-        "McAfee Lazarus Nov 2020",
-        "Lazarus APT January 2022",
-        "Novetta Blockbuster",
-        "McAfee Lazarus Jul 2020",
         "ESET Lazarus Jun 2020",
-        "Novetta Blockbuster RATs",
-        "McAfee Lazarus Resurfaces Feb 2018"
+        "Lazarus APT January 2022",
+        "McAfee Lazarus Jul 2020",
+        "McAfee Lazarus Nov 2020",
+        "McAfee Lazarus Resurfaces Feb 2018",
+        "Novetta Blockbuster",
+        "Novetta Blockbuster RATs"
       ],
       "source": "Lazarus Group",
       "target": "T1547.001",
@@ -996,13 +996,13 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "McAfee Bankshot",
         "ClearSky Lazarus Aug 2020",
-        "McAfee Lazarus Nov 2020",
-        "Lazarus APT January 2022",
-        "Kaspersky ThreatNeedle Feb 2021",
-        "McAfee Lazarus Jul 2020",
         "ESET Lazarus Jun 2020",
+        "Kaspersky ThreatNeedle Feb 2021",
+        "Lazarus APT January 2022",
+        "McAfee Bankshot",
+        "McAfee Lazarus Jul 2020",
+        "McAfee Lazarus Nov 2020",
         "Qualys LolZarus"
       ],
       "source": "Lazarus Group",
@@ -1013,12 +1013,12 @@
       "edge_type": "USES_TECHNIQUE",
       "sources": [
         "ClearSky Lazarus Aug 2020",
-        "McAfee GhostSecret",
-        "McAfee Lazarus Nov 2020",
-        "Lazarus APT January 2022",
-        "Novetta Blockbuster",
-        "McAfee Lazarus Jul 2020",
         "ESET Lazarus Jun 2020",
+        "Lazarus APT January 2022",
+        "McAfee GhostSecret",
+        "McAfee Lazarus Jul 2020",
+        "McAfee Lazarus Nov 2020",
+        "Novetta Blockbuster",
         "Qualys LolZarus"
       ],
       "source": "Lazarus Group",
@@ -1038,10 +1038,10 @@
     {
       "edge_type": "USES_TECHNIQUE",
       "sources": [
-        "McAfee Lazarus Jul 2020",
+        "ClearSky Lazarus Aug 2020",
         "ESET Lazarus Jun 2020",
-        "McAfee Lazarus Nov 2020",
-        "ClearSky Lazarus Aug 2020"
+        "McAfee Lazarus Jul 2020",
+        "McAfee Lazarus Nov 2020"
       ],
       "source": "Lazarus Group",
       "target": "T1560.001",
