@@ -47,4 +47,8 @@ mkdir -p data/raw && curl -o data/raw/enterprise-attack.json \
 
 python -m graph.build_graph      # structural graph -> data/structural_graph.json
 python -m graph.semantic_edges   # + semantic edges -> data/graph_with_semantics.json
+
+# query layer needs an Anthropic API key - put it in .env (gitignored):
+echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
+python -m query.ask "what happens after T1059.001 for APT29?"
 ```

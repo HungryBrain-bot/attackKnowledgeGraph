@@ -26,9 +26,15 @@ against real, cited sources.
   Empty in this prototype - no autonomous extraction pipeline is in
   scope here (see Project, above); all seed data and semantic edges are
   authored directly in `graph/` instead.
-- `query/` - Graph RAG: traverse graph for a relevant subgraph, LLM
-  formats it into a cited natural-language answer. LLM does not
-  originate facts.
+- `query/` - Graph RAG: `graph_loader.py` loads the pre-built combined
+  graph; `retrieval.py` traverses it for one technique's structural
+  usage and directly-connected semantic edges (pure Python, no LLM);
+  `rag.py` sends those facts plus the question to Claude, constrained by
+  a system prompt to formatting only - LLM does not originate facts;
+  `ask.py` is the CLI entry point (`python -m query.ask "..."`). See
+  docs/decisions/003-query-layer-scope.md for why retrieval is scoped to
+  one technique/one hop and entity extraction is plain regex, not an
+  LLM call.
 - `docs/attack-patterns/` - one case file per technique (problem,
   mechanics, how the graph models it, sources) - see
   `.claude/skills/attack-pattern-doc/SKILL.md`
@@ -107,8 +113,8 @@ model for everything.
 
 ## Current status
 
-Phase: Semantic edges built (Phase 2 of README's scope), on top of the
-Phase 1 structural graph.
+Phase: Query layer built (Phase 3 of README's scope), on top of the
+Phase 1 structural graph and Phase 2 semantic edges.
 
 - `data/raw/enterprise-attack.json` - official MITRE ATT&CK STIX bundle
   (not committed - gitignored, ~48MB). Regenerate with:
@@ -143,18 +149,35 @@ Phase 1 structural graph.
 - `docs/attack-patterns/` - 13 case files, one per seed technique
   (T1566.001, T1204.002, T1059.001, T1078, T1083, T1021.001, T1560.001,
   T1074.002, T1071.001, T1003.002, T1057, T1105, T1547.001).
+- `query/` - Graph RAG query layer. `retrieval.py` + `format_context()`
+  verified end-to-end against the real graph (technique-only and
+  technique+group filtered, plus the not-in-graph error case).
+  `rag.py` calls `claude-opus-5` via the Anthropic SDK
+  (`python-dotenv`-loaded `.env` for `ANTHROPIC_API_KEY`, gitignored),
+  system-prompted to answer only from the retrieved facts block and cite
+  sources. **Not live-tested against the real API this session** - no
+  Anthropic credentials are configured on this machine (checked: no
+  `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` env vars, no `ant auth`
+  profile - `ant` on this machine resolves to Apache Ant, not the
+  Anthropic CLI). Confirmed the failure mode is the SDK's own clean
+  "could not resolve authentication method" error, not a bug in this
+  project's code - re-verify the actual answer quality once a key is
+  available.
 - Environment: `mitreattack-python` isn't available as a system package
   on this machine (Kali marks Python as externally managed) - use the
   project's `.venv` (gitignored, `python3 -m venv .venv && .venv/bin/pip
   install -r requirements.txt`) rather than the system `python3` to run
-  anything in `graph/`.
+  anything in `graph/` or `query/`.
 
-Next: cross-group comparison edges (e.g. contrasting how APT29 vs APT28
-chain the same technique pair) are unbuilt; the lowest-confidence edges
-(0.65 tier - T1547.001's two incoming edges, T1059.001->T1105 for APT28)
-would benefit from deeper sourcing if time allows, since their
-underlying reports could only be confirmed via co-citation, not a
-directly quoted sequence. After that, the Graph RAG query layer.
+Next: live-test `query/ask.py` against the real API once a key is
+available, and read the answers for quality/citation accuracy, not just
+confirm the plumbing works. Cross-group comparison edges (e.g.
+contrasting how APT29 vs APT28 chain the same technique pair) are
+unbuilt; the lowest-confidence edges (0.65 tier - T1547.001's two
+incoming edges, T1059.001->T1105 for APT28) would benefit from deeper
+sourcing if time allows. Retrieval is single-technique/one-hop by
+design (docs/decisions/003) - multi-hop or multi-entity queries are a
+future extension, not a gap in this pass.
 
 ## Do NOT
 

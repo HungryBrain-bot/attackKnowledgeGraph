@@ -151,3 +151,44 @@
   reusable principle (extract repeated lookup/extraction logic into
   named helpers, use `Counter` for type-counting, verify before adding
   complexity) rather than a list of the specific fixes made here.
+
+## 2026-08-13 - Graph RAG query layer (Phase 3)
+
+- Built `query/` end to end: `graph_loader.py` loads the already-built
+  `data/graph_with_semantics.json` (no need to re-parse the 48MB STIX
+  bundle just to run a query); `retrieval.py` does pure-Python graph
+  traversal for one technique - its structural `USES_TECHNIQUE` usage
+  plus every directly-connected semantic edge, optionally filtered to
+  one group - with zero LLM involvement; `rag.py` sends the retrieved
+  facts plus the question to Claude (`claude-opus-5`) with a system
+  prompt that forbids answering from anything outside the facts block
+  and requires cited claims; `ask.py` is the CLI entry point,
+  `python -m query.ask "..."`, extracting a technique ID and optional
+  group from the question via regex/substring matching rather than a
+  second LLM call, since ATT&CK IDs and this project's 3 seed group
+  names are unambiguous strings. Scope decision (single-technique/
+  one-hop retrieval, no-LLM entity extraction) written up in
+  docs/decisions/003-query-layer-scope.md.
+- Consulted the claude-api skill before writing any Anthropic SDK code,
+  per its trigger rules - confirmed current model IDs/params rather than
+  relying on training-data recall (e.g. `claude-opus-5` is on by default
+  for adaptive thinking; `output_config`/`thinking` shapes verified
+  against the skill's cached docs, not guessed).
+- Wired up `python-dotenv` (already a declared but unused dependency in
+  requirements.txt) so `rag.py` picks up `ANTHROPIC_API_KEY` from a
+  gitignored `.env` file.
+- Verified `retrieval.py` + `format_context()` end-to-end against the
+  real graph: technique-only query, technique+group-filtered query, and
+  the not-in-graph error case all produce correct output (checked by
+  hand against the known T1059.001 edges from the Phase 2 session).
+- **Could not live-test the actual Claude API call this session** - no
+  `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` env var and no `ant auth`
+  profile are configured on this machine (the `ant` binary present here
+  is Apache Ant, unrelated to the Anthropic CLI). Ran the full CLI
+  pipeline anyway to confirm the failure is the SDK's own clean
+  "could not resolve authentication method" error at client
+  construction - not a bug anywhere in this project's code - rather than
+  claiming a live test that didn't happen.
+- Next: get a real API key into this environment (or hand the CLI to
+  someone who has one) and actually read the model's answers for
+  quality and citation accuracy, not just confirm the plumbing runs.
