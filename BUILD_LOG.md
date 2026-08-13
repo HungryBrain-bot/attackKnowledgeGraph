@@ -220,3 +220,47 @@
   full `query/ask.py` CLI pipeline still runs through retrieval and
   fails at the same point (the SDK's clean auth error, no credentials
   configured on this machine) as before the refactor.
+
+## 2026-08-13 - fetch-test-logs skill (real EVTX test data)
+
+- Researched the requested dataset - github.com/arniki/atomic-evtx -
+  directly against the live repo (GitHub API contents listing, raw
+  README.md, raw `full_list_of_attacks_simulated.csv`) rather than
+  assuming its structure. Confirmed real: 1,064 Atomic Red Team-
+  simulated attack scenarios across 12 ATT&CK tactic categories, three
+  filtering-tier directories (`attacks_by_category_unfiltered`,
+  `attacks_by_category_atomic_removed`,
+  `attacks_by_category_atomic_and_tools_removed`), and the CSV's real
+  column names (`Category`, `TTP ID`, `Description`).
+- **Found a non-obvious, load-bearing fact by testing rather than
+  trusting the README summary**: compared file sizes for the same
+  scenario across two tiers and confirmed the top-level `.evtx`/`.csv`/
+  `.txt` files are byte-identical regardless of tier - the tier-specific
+  filtering (framework artifacts, tool names) only touches the JSON
+  representations in each scenario's `json/` subdirectory. My first
+  draft of the fetch script skipped `json/` entirely to keep the
+  default download small, which would have made every "sanitized tier"
+  fetch silently return the same unfiltered content as "raw." Fixed
+  before writing any documentation that claimed otherwise.
+- Computed the real cross-reference against `graph/seed_config.py`'s
+  `SEED_TECHNIQUES` by parsing the actual CSV: 11 of 13 seed techniques
+  have matching scenarios (96 total); T1078 and T1074.002 have none -
+  documented as a real gap, not silently dropped.
+- Wrote `.claude/skills/fetch-test-logs/SKILL.md` (tier tradeoffs, which
+  tier for which purpose, the cross-reference table, the byte-identical-
+  EVTX caveat above) and `fetch_test_logs.py` (stdlib-only, no new
+  project dependency; imports `SEED_TECHNIQUES` directly from
+  `graph/seed_config.py` rather than duplicating the list).
+- Verified the script for real, not just read through it: ran it in
+  list-only mode (output matched the hand-computed cross-reference
+  exactly) and with `--fetch --tier sanitized --limit 1` (successfully
+  downloaded real log files, including `json/`, for all 11 matched
+  techniques - confirmed via `du`/`find`, then deleted the local
+  download afterward since it's test output, not something to keep
+  lying around).
+- Added `data/test_logs/` to `.gitignore` and a note in CLAUDE.md that
+  this is future test/validation data for the query layer once it
+  exists - not wired into the query layer, a test suite, or anything
+  else yet.
+- No sub-agent built for this, per instruction - just the skill and the
+  script.

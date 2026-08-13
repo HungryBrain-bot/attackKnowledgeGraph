@@ -193,6 +193,17 @@ Phase 1 structural graph and Phase 2 semantic edges.
   construction, unchanged after the provider refactor - not a bug in
   this project's code - re-verify the actual answer quality once a key
   is available.
+- `.claude/skills/fetch-test-logs/` - a data-fetching skill + script for
+  real Atomic Red Team-simulated EVTX/JSON logs
+  ([arniki/atomic-evtx](https://github.com/arniki/atomic-evtx)), cross-
+  referenced against `SEED_TECHNIQUES` (11 of 13 have matching samples;
+  T1078 and T1074.002 don't). **This is future test/validation data for
+  the query layer once it exists to be tested - not wired into the
+  query layer, a test suite, or anything else yet.** Verified working
+  end-to-end (real download tested, not just written) - see the skill's
+  own SKILL.md for the tier tradeoffs, including a non-obvious finding:
+  the tier-specific filtering only touches the JSON representations,
+  not the raw EVTX files.
 - Environment: `mitreattack-python` isn't available as a system package
   on this machine (Kali marks Python as externally managed) - use the
   project's `.venv` (gitignored, `python3 -m venv .venv && .venv/bin/pip
