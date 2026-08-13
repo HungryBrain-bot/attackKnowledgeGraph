@@ -56,6 +56,10 @@ What this makes easier, harder, or explicitly out of scope now.
 - After changing `graph/semantic_edges.py` or `graph/seed_config.py`,
   see the generate-diagrams skill - the data-driven Mermaid diagrams
   need regenerating so they don't silently drift from the graph.
+- After changing `query/ask.py`'s entity extraction, `query/rag.py`'s
+  prompt construction/system prompt, or `query/llm_provider.py` (new
+  provider added), see the ai-security-assessment skill - those are
+  exactly the surfaces its adversarial test cases exist to re-check.
 
 ## Commit conventions
 
