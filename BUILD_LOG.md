@@ -670,3 +670,26 @@
   not a measurement - it couldn't ever have shown red) with the real
   live GitHub Actions status badge, linked to the actual workflow run
   history.
+
+## 2026-08-13 - Claude live-test: explicitly deferred, not dropped
+
+- Re-checked whether an Anthropic credential has become available on
+  this machine this session - it hasn't (same check as before: no
+  `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` env vars, no `ant auth`
+  profile). Confirmed this is still the sole blocker, not a proxy for
+  some other gap - `ClaudeProvider`'s implementation, the CLI, and the
+  exact three test cases to run against it (already run and recorded
+  against `OpenAIProvider` - see this file's "Query CLI end-to-end
+  test" entry) are all already built and waiting, nothing left to design
+  or implement first.
+- Updated CLAUDE.md's status section so this reads as explicitly
+  deferred rather than just "not done": spelled out the exact sequence
+  for whoever picks this up once a key exists (add the key to `.env`,
+  re-run the same three questions already verified against OpenAI, then
+  compare Claude's answers against the already-recorded OpenAI answers
+  for the two real questions - not just confirming it doesn't crash) so
+  a future session doesn't have to reconstruct what "live-test Claude"
+  actually means from scratch.
+- No functional or code change - this entry exists specifically so this
+  gap has an honest, dated record of being considered and consciously
+  deferred this session, not silently carried forward or forgotten.

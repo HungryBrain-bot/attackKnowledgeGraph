@@ -251,13 +251,28 @@ Phase 1 structural graph and Phase 2 semantic edges.
   **`OpenAIProvider` is live-tested and verified**: a direct
   `generate()` call and a full `rag.answer()` call with real T1059.001/
   APT29 facts both returned correct, correctly-cited answers. **Claude
-  is still not live-tested** - no Anthropic credentials are configured
-  on this machine (checked: no `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN`
-  env vars, no `ant auth` profile - `ant` on this machine resolves to
-  Apache Ant, not the Anthropic CLI). Confirmed the failure mode is the
-  SDK's own clean "could not resolve authentication method" error at
-  client construction, not a bug in this project's code - re-verify once
-  an Anthropic key is available. `OpenAIProvider` was implemented by
+  is still not live-tested - explicitly deferred, not skipped or dropped:
+  a missing `ANTHROPIC_API_KEY` is the only blocker, everything else is
+  already built and ready.** Checked again as of this session: no
+  `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` env vars, no `ant auth`
+  profile (`ant` on this machine resolves to Apache Ant, not the
+  Anthropic CLI) - the failure mode is the SDK's own clean "could not
+  resolve authentication method" error at client construction, not a
+  bug in this project's code. `ClaudeProvider` itself, the CLI
+  (`python -m query.ask`), and the exact test cases to run are all
+  already in place - the moment a key exists, the full sequence is:
+  (1) add `ANTHROPIC_API_KEY=sk-ant-...` to `.env`; (2) re-run the same
+  three cases already verified against `OpenAIProvider` (see BUILD_LOG's
+  2026-08-13 "Query CLI end-to-end test" entry) - `"what happens after
+  T1059.001 for APT29?"`, `"what did Lazarus Group do with T1560.001?"`,
+  and `"what happens after phishing?"` (the no-technique-ID error path,
+  which needs no LLM call at all and should behave identically
+  regardless of provider); (3) compare Claude's answers against the
+  already-recorded OpenAI answers for the same two real questions - not
+  just "did it not crash," but whether the two providers' formatting-
+  only answers actually agree on the same underlying facts. No new test
+  design work is needed, just execution once credentials exist.
+  `OpenAIProvider` was implemented by
   installing `openai` (v3.0.0) and reading its actual source rather than
   from training-data memory of an older SDK shape - see
   docs/decisions/004-llm-provider-abstraction.md's 2026-08-13 update for
