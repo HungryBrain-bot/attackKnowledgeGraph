@@ -577,3 +577,56 @@
   applies going forward regardless of what this first pass found) versus
   the first assessment run's findings, the ADR, and the `rag.py` fix
   (a specific, dated result).
+
+## 2026-08-13 - Deferred design: multi-agent continuous CTI ingestion
+
+- Wrote `docs/future/multi-agent-ingestion.md` - design-only, unbuilt,
+  clearly banner-marked as such at the top and dated. Sketches, at
+  design level (no code), a multi-agent orchestration approach to
+  replace `graph/semantic_edges.py`'s hand-authored edges with
+  continuous CTI feed ingestion: five proposed agent roles (source
+  monitoring, extraction, evidence grounding, confidence scoring,
+  conflict detection), how they'd map onto `graph/` without touching the
+  STIX-sourced structural graph (semantic edges move from hand-authored
+  to agent-proposed + validated, via a new proposed/validated split
+  analogous to the existing structural/semantic file split from
+  docs/decisions/002), and an explicit validation gate (independent
+  evidence-grounding, real named sources, written confidence
+  justification, conflict-check, human review before first promotion to
+  trusted) with a named failure mode if any part of it doesn't hold -
+  "no invented data" silently stops being true at a scale nobody's
+  reading by hand anymore. Explicitly references this project's own
+  real, documented T1059.001/T1021.001 edge-direction error (caught only
+  by a human re-reading a full report) as the reason human review isn't
+  optional in an initial rollout, not just a nice-to-have. Deferred for
+  the same reason `ingestion/` is an intentionally empty placeholder
+  today (docs/decisions/001) - a multi-month/multi-person effort
+  orthogonal to proving this prototype's actual differentiator.
+- New skill `.claude/skills/scale-to-continuous-ingestion/SKILL.md`:
+  explicit trigger condition (a real decision to pursue this - project
+  owner intent or genuine external interest - never automatically, never
+  as part of routine build sessions), what to do when actually triggered
+  (read the design doc first as a first draft to revise against
+  whatever's true at that point, not a finished spec to implement
+  literally; build the validation gate before or alongside the first
+  edge-proposing role, never after), and an explicit "what must NOT
+  change" section - no invented data, `confidence`/`sample_size`'s
+  literal definitions, the build-and-document/attack-pattern-doc/
+  ai-security-assessment disciplines all still apply, ingestion is
+  additive engineering, not a license to relax the standards the
+  hand-authored version was built to. Added a one-line cross-reference
+  from `build-and-document/SKILL.md`, same pattern as the other skills.
+- Added a short, honestly-framed README "Future Direction" section
+  (deliberately not "Roadmap" - this is speculative, not committed),
+  3-4 sentences linking to the full design doc rather than duplicating
+  its content, placed directly before the existing "Roadmap" section so
+  the built/planned/speculative boundary stays visually clear.
+- Updated CLAUDE.md's Architecture section: cross-referenced the new
+  design doc + skill from the existing `ingestion/` bullet, and added a
+  new Current status bullet explicitly marked "design-only, unbuilt" so
+  it can't be misread as progress on a par with the rest of that
+  section's real, built features.
+- Three separate commits (design doc; README mention; skill) - different
+  provenance, matching this session's own established pattern for
+  splitting work that arrived as one request but represents genuinely
+  different kinds of change.

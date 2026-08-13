@@ -48,7 +48,12 @@ flowchart LR
 - `ingestion/` - reserved for a future automated CTI ingestion pipeline.
   Empty in this prototype - no autonomous extraction pipeline is in
   scope here (see Project, above); all seed data and semantic edges are
-  authored directly in `graph/` instead.
+  authored directly in `graph/` instead. The deferred design for what
+  would eventually live here - a multi-agent continuous-ingestion
+  approach - is written up, design-only and unbuilt, in
+  `docs/future/multi-agent-ingestion.md`; see
+  `.claude/skills/scale-to-continuous-ingestion/` for the explicit
+  trigger condition before anyone acts on it.
 - `query/` - Graph RAG: `graph_loader.py` loads the pre-built combined
   graph; `retrieval.py` traverses it for one technique's structural
   usage and directly-connected semantic edges (pure Python, no LLM);
@@ -281,6 +286,19 @@ Phase 1 structural graph and Phase 2 semantic edges.
   before the fix - see the entry for detail). `ClaudeProvider` hasn't
   been run through this assessment yet (no Anthropic key on this
   machine, same gap as its general live-testing status above).
+- `docs/future/multi-agent-ingestion.md` + `.claude/skills/scale-to-
+  continuous-ingestion/` - **design-only, unbuilt, dated 2026-08-13**.
+  Sketches a multi-agent orchestration approach for replacing
+  `graph/semantic_edges.py`'s hand-authored edges with continuous CTI
+  ingestion (source monitoring, extraction, evidence grounding,
+  confidence scoring, conflict detection roles; an explicit validation
+  gate proposed before any agent-proposed edge is trusted at today's
+  level). Nothing here is implemented and `ingestion/` remains empty -
+  the skill's own trigger condition (an explicit real decision to
+  pursue this, not routine build sessions) is the only thing that
+  changes that. Also linked from README's new "Future Direction"
+  section, explicitly separated from the "Roadmap" section so it can't
+  be mistaken for committed work.
 - `.claude/skills/fetch-test-logs/` - a data-fetching skill + script for
   real Atomic Red Team-simulated EVTX/JSON logs
   ([arniki/atomic-evtx](https://github.com/arniki/atomic-evtx)), cross-

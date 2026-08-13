@@ -60,6 +60,11 @@ What this makes easier, harder, or explicitly out of scope now.
   prompt construction/system prompt, or `query/llm_provider.py` (new
   provider added), see the ai-security-assessment skill - those are
   exactly the surfaces its adversarial test cases exist to re-check.
+- On an explicit, real decision to build multi-agent continuous CTI
+  ingestion (not routine build sessions), see the
+  scale-to-continuous-ingestion skill and docs/future/multi-agent-
+  ingestion.md - deferred design thinking, not built, gated by that
+  skill's trigger conditions.
 
 ## Commit conventions
 
