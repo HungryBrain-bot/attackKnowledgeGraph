@@ -49,3 +49,18 @@ APT29 suspected - what should be assumed already compromised, and what's
 next?" resolves to: treat this as a likely opening move (per the UNC3524
 pattern), and expect offline credential extraction via `reg save` to
 follow, not the other way around.
+
+## Flow
+
+<!-- BEGIN GENERATED: graph/generate_diagrams.py (do not hand-edit; rerun the script) -->
+```mermaid
+flowchart LR
+    T_T1105["T1105<br/>Ingress Tool Transfer"]
+    T_T1003_002["T1003.002<br/>Security Account Manager"]
+    T_T1059_001["T1059.001<br/>PowerShell"]
+    T_T1547_001["T1547.001<br/>Registry Run Keys / Startup Folder"]
+    T_T1059_001 -->|"CAUSALLY_ENABLES<br/>APT28, 0.65"| T_T1105
+    T_T1105 -->|"CAUSALLY_ENABLES<br/>APT29, 0.8"| T_T1003_002
+    T_T1105 -->|"CAUSALLY_ENABLES<br/>APT29, 0.65"| T_T1547_001
+```
+<!-- END GENERATED -->

@@ -50,3 +50,16 @@ a query layer a concrete, four-source-backed basis for answering yes,
 rather than treating discovery as noise. For APT29, "process discovery
 just fired - is file/directory discovery likely next?" resolves to yes,
 with the SolarWinds intrusion as the documented basis.
+
+## Flow
+
+<!-- BEGIN GENERATED: graph/generate_diagrams.py (do not hand-edit; rerun the script) -->
+```mermaid
+flowchart LR
+    T_T1083["T1083<br/>File and Directory Discovery"]
+    T_T1057["T1057<br/>Process Discovery"]
+    T_T1560_001["T1560.001<br/>Archive via Utility"]
+    T_T1057 -.->|"TEMPORALLY_PRECEDES<br/>APT29, 0.7"| T_T1083
+    T_T1083 -.->|"TEMPORALLY_PRECEDES<br/>Lazarus Group, 0.75"| T_T1560_001
+```
+<!-- END GENERATED -->

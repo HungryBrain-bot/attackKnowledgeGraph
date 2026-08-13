@@ -59,3 +59,21 @@ exploitation, or SAM credential dumping) instead of a generic "monitor
 for lateral movement" answer - and for APT29, the same question resolves
 to "expect a fast privilege-escalation-to-discovery pipeline, historically
 under 12 hours."
+
+## Flow
+
+<!-- BEGIN GENERATED: graph/generate_diagrams.py (do not hand-edit; rerun the script) -->
+```mermaid
+flowchart LR
+    T_T1078["T1078<br/>Valid Accounts"]
+    T_T1003_002["T1003.002<br/>Security Account Manager"]
+    T_T1021_001["T1021.001<br/>Remote Desktop Protocol"]
+    T_T1057["T1057<br/>Process Discovery"]
+    T_T1059_001["T1059.001<br/>PowerShell"]
+    T_T1059_001 -.->|"TEMPORALLY_PRECEDES<br/>APT29, 0.85"| T_T1078
+    T_T1078 -->|"CAUSALLY_ENABLES<br/>APT28, 0.85"| T_T1003_002
+    T_T1078 -->|"CAUSALLY_ENABLES<br/>APT28, 0.75"| T_T1021_001
+    T_T1078 -.->|"TEMPORALLY_PRECEDES<br/>APT29, 0.7"| T_T1057
+    T_T1078 -->|"CAUSALLY_ENABLES<br/>APT28, 0.65"| T_T1059_001
+```
+<!-- END GENERATED -->

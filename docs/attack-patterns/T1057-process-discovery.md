@@ -49,3 +49,16 @@ intrusion, Domain Admin already suspected compromised - what's next?"
 resolves to file/directory discovery as the documented next step in this
 specific, real intrusion's timeline, not a generic "the attacker might
 look around" guess.
+
+## Flow
+
+<!-- BEGIN GENERATED: graph/generate_diagrams.py (do not hand-edit; rerun the script) -->
+```mermaid
+flowchart LR
+    T_T1057["T1057<br/>Process Discovery"]
+    T_T1078["T1078<br/>Valid Accounts"]
+    T_T1083["T1083<br/>File and Directory Discovery"]
+    T_T1057 -.->|"TEMPORALLY_PRECEDES<br/>APT29, 0.7"| T_T1083
+    T_T1078 -.->|"TEMPORALLY_PRECEDES<br/>APT29, 0.7"| T_T1057
+```
+<!-- END GENERATED -->
