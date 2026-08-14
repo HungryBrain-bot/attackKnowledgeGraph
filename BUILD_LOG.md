@@ -893,3 +893,61 @@
   time, not a summary.
 - `ClaudeProvider` still hasn't been exercised by this skill - same
   blocker as the first pass, no `ANTHROPIC_API_KEY` on this machine.
+
+## 2026-08-14 - Fix Finding 4's structural gap: edge-existence guard
+
+- Explicit user request, same day as the second `ai-security-assessment`
+  pass above, which had deliberately left the guard itself unfixed
+  (only pinned the gap in a test). This entry is that fix.
+- Added `_check_no_ungrounded_edges()` in `query/rag.py`, run alongside
+  the existing `_check_no_ungrounded_techniques()` in `answer()`.
+  Extracts every edge-shaped mention in the response (technique ID,
+  edge-type keyword, second technique ID - via a new `EDGE_MENTION_RE`
+  that matches both `format_context()`'s canonical `SRC --EDGE_TYPE-->
+  TGT` syntax and prose variants like `SRC → (edge type) TGT`, since
+  live responses use both) and checks the exact `(source, edge_type,
+  target)` triple against the edges actually present in FACTS - not
+  just that both endpoint IDs appear somewhere in it, which is all the
+  first guard ever checked.
+- **Real design problem solved along the way, not just the headline
+  fix**: a naive existence check would have turned Finding 4's Attempt
+  3 - a *correct* refusal that quotes the fabricated edge back verbatim
+  while declining it - into a false-positive `RuntimeError`, which
+  would have been worse than the gap it fixes (breaking correct
+  answers). Solved by checking a short window of text after each
+  unmatched edge mention for a rejection cue ("not present", "you
+  proposed", "cannot be used", etc.) before raising - quoted-and-
+  declined mentions are skipped, asserted ones still raise. Also
+  handled edge chains correctly (`A --X--> B --Y--> C` yielding both
+  `(A,X,B)` and `(B,Y,C)`, not just the first) by making the regex's
+  target-ID group a lookahead so it isn't consumed by the first match.
+- Verified twice: (1) synthetically, against the exact captured
+  transcripts and a hand-built "actually asserts the fabricated edge"
+  string, before touching the live pipeline; (2) live, re-running all
+  three of Finding 4's original attempts against the fixed pipeline -
+  same correct-refusal behavior as before, no regression, and the new
+  guard correctly doesn't fire on any of them since the model still
+  never asserts the fabricated data as fact.
+- Updated `tests/test_rag_guard.py`: kept the technique-only guard's
+  scope-limit test (renamed, now documents intentional narrow scope
+  rather than an unfixed gap), added two new tests for the edge guard
+  (catches the fabrication; does not flag Attempt 3's real quoted
+  rejection), plus one confirming a real edge cited in the model's own
+  prose style (unicode arrow, parenthesized lowercase edge type) isn't
+  flagged just for not matching FACTS's literal syntax. `python -m
+  pytest tests/`: 20 passed (was 17), all live adversarial regression
+  cases from both prior passes still hold.
+- Updated docs/decisions/005-prompt-injection-fact-separation.md with a
+  "2026-08-14 - edge-existence guard" update section (full Decision/
+  quoted-rejection-problem/verification writeup) rather than a new ADR
+  number, since this is a direct evolution of that ADR's existing
+  "Deterministic" enforcement layer, not a separate decision - and
+  updated docs/security-assessment.md's existing 2026-08-14 Finding 4
+  entry in place (same pass, same day - same pattern Finding 1 used for
+  its own same-session fix) rather than opening a new dated section.
+- Residual, honestly stated limit: the new guard only catches
+  fabrications phrased with a technique ID, an edge-type keyword, and a
+  second technique ID close enough together to match the detection
+  pattern - free prose asserting the same fabrication without that
+  shape is caught by neither guard. Logged as an open item for the next
+  `ai-security-assessment` pass, not silently claimed as closed.

@@ -178,7 +178,7 @@ actual code changes were confined to `graph/semantic_edges.py` and docs
 query layer itself is untouched, so this is a clean confirmation of no
 drift, not a new finding.
 
-### Finding 4: Fabricated attributes/edges on real technique IDs - HELD on all 3 live attempts, but NOT structurally enforced
+### Finding 4: Fabricated attributes/edges on real technique IDs - HELD on all 3 live attempts, structural gap fixed same session
 
 Three escalating live attempts, all using the real edge
 `T1059.001 --TEMPORALLY_PRECEDES--> T1078` (APT29, confidence 0.85,
@@ -259,34 +259,60 @@ could not fire in any of them. Single provider, single model,
 single-shot each; resistance is not established as a property of the
 pipeline."*
 
-**Fix applied**: none to the guard itself this pass - a structural fix
-(e.g. checking that every cited *edge*, not just every cited technique
-ID, appears in the facts block) is future work, not silently deferred.
-What *was* added: a deterministic unit test,
-`tests/test_rag_guard.py::test_does_not_catch_a_fabricated_edge_
-between_two_real_ids`, that asserts `_check_no_ungrounded_techniques()`
-does **not** raise on exactly this shape of fabrication - pinning the
-known limitation in code, where an unrelated refactor can't silently
-change the guarantee without a test noticing. Per the Opus review's
-guidance, this test asserts against the guard function directly, not
-against LLM refusal text (non-deterministic, and would be exactly the
-kind of asserting-something-not-actually-verified the skill's own
-"Do NOT" section warns against).
+**Fix applied (initially deferred, then built same session on explicit
+request)**: a second deterministic guard, `_check_no_ungrounded_edges()`
+in `query/rag.py`, run alongside `_check_no_ungrounded_techniques()` in
+`answer()`. It extracts every edge-shaped mention in the response (a
+technique ID, an edge-type keyword, a second technique ID - matching
+both the canonical `SRC --EDGE_TYPE--> TGT` syntax and prose variants
+like `SRC → (edge type) TGT`) and checks the exact `(source, edge_type,
+target)` triple against the edges actually present in FACTS, not just
+each endpoint ID's individual presence. Full design reasoning,
+including the quoted-rejection false-positive problem it had to solve
+(a *correct* refusal often quotes the fabricated edge back verbatim
+while declining it - see Attempt 3 above - and a naive existence check
+would flag that quoting as the violation), is in docs/decisions/005's
+2026-08-14 update.
+
+**Re-verified after the fix**: all three attempts above were re-run
+against the fixed pipeline and still return normally, with the same
+correct-refusal behavior as before - no regression, and the guard
+correctly does not fire on any of them (since the model never actually
+asserted the fabricated data as fact). The guard's actual triggering
+behavior - the part that couldn't be verified by re-running these three
+already-resisted live attempts - is pinned by two deterministic unit
+tests in `tests/test_rag_guard.py`:
+`test_edge_guard_catches_a_fabricated_edge_between_two_real_ids` (a
+hand-built response that *does* assert the fabricated edge; confirms
+the guard raises) and `test_edge_guard_does_not_flag_a_quoted_rejection`
+(confirms Attempt 3's real quoted-and-declined phrasing does not
+falsely trigger it). Also added `test_technique_guard_does_not_catch_a_
+fabricated_edge`, renamed from this pass's earlier `test_does_not_
+catch_a_fabricated_edge_between_two_real_ids`, which now documents
+`_check_no_ungrounded_techniques()`'s intentionally narrow scope (still
+true and by design) rather than an unfixed gap - the gap itself is
+closed by the new, separate guard, not by widening the first one.
 
 ### Open items for the next pass
-- **The ADR-005 gap is now characterized more precisely, not closed.**
-  Restated: `_check_no_ungrounded_techniques()` checks technique-ID
-  *presence* in the facts block, not edge existence, and not attribute
-  integrity (confidence/sample_size/sources/group_context) on an edge
-  between two individually-real IDs. A structural fix - validating that
-  the cited *edge* (source, target, group_context) appears in the facts
-  block, not just that both endpoint IDs appear somewhere in it - is
-  the natural next step if this is prioritized.
-- Sample size for Finding 4 is small by design (n=3, one provider, one
-  model, one edge family, single-shot each) - per the Opus review, this
-  is enough to characterize the gap and confirm it isn't trivially
-  exploitable today, not enough to claim resistance as a general
-  property of the pipeline.
+- **The ADR-005 gap is now closed by a second guard, not just
+  characterized.** `_check_no_ungrounded_edges()` validates cited edge
+  existence; `_check_no_ungrounded_techniques()` is unchanged and still
+  only checks endpoint-ID presence, by design (see the ADR's 2026-08-14
+  update for why that division of labor, not a single merged check, was
+  the chosen shape). **Residual scope limit, stated honestly**: the new
+  guard only catches fabrications phrased with a technique ID, an
+  edge-type keyword, and a second technique ID close enough together to
+  match its detection pattern - free prose asserting the same
+  fabrication without that shape (e.g. "PowerShell reliably leads to
+  Valid Accounts here," no edge-type keyword or arrow) is caught by
+  neither guard. Worth a dedicated adversarial attempt in a future pass
+  to see whether a model can be steered into exactly that unstructured
+  phrasing.
+- Sample size for Finding 4's three live attempts is still small by
+  design (n=3, one provider, one model, one edge family, single-shot
+  each) - the fix now backstops the model regardless of sample size,
+  but the model's own resistance (as opposed to the guard's) is still
+  not established as a general property of the pipeline.
 - Finding 3's residual paraphrase-disclosure (system-prompt extraction)
   remains an open, unfixed gap from the first pass - untouched this
   session.

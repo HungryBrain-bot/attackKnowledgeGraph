@@ -115,3 +115,69 @@ re-run against the fixed pipeline and still held - no regression.
   this exact case (now also encoded as a real assertion in
   `tests/test_adversarial_queries.py`) as a regression check, not just
   novel attack patterns.
+
+## Update, 2026-08-14 - edge-existence guard closes the "fabricated attribute" gap
+
+The Consequences section above flagged this decision's own scope limit
+in advance: `_check_no_ungrounded_techniques()` "does not catch a
+fabricated group name, confidence score, or source that happens to
+reference a technique ID that IS in the facts block." The second
+`ai-security-assessment` pass (docs/security-assessment.md, 2026-08-14
+Finding 4) verified that gap for real: three live attempts fabricated a
+confidence/sample_size/sources or a wholly fabricated edge between two
+individually-real, already-grounded technique IDs, and none tripped the
+guard, because it checks technique-ID *presence*, never edge *existence*.
+All three were resisted by the model anyway (Opus-reviewed), but with no
+deterministic backstop - the same "soft prior, not a trust boundary"
+concern this ADR's original Context section raised about role separation
+alone now applied to the technique-ID guard's blind spot too.
+
+**Fix**: a second deterministic check, `_check_no_ungrounded_edges()` in
+`query/rag.py`, run alongside `_check_no_ungrounded_techniques()` in
+`answer()`. It extracts every edge-shaped mention in the response (a
+technique ID, an edge-type keyword, a second technique ID - matching
+both `format_context()`'s canonical `SRC --EDGE_TYPE--> TGT` syntax and
+prose variants like `SRC → (edge type) TGT`, since live responses use
+both) and checks the exact `(source, edge_type, target)` triple against
+the edges actually present in FACTS, not just each ID's individual
+presence. An edge not found there raises `RuntimeError`, same "raise,
+don't fabricate" convention as the first guard.
+
+**The one real design problem this raised**: a *correct* refusal often
+quotes the fabricated edge back verbatim while declining it (Finding 4's
+Attempt 3: `"...the edge you proposed, 'T1204.002 --TEMPORALLY_
+PRECEDES--> T1078,' is not present in the FACTS block..."`). A naive
+existence check would flag that quoting as the violation, turning a
+correct refusal into a false-positive `RuntimeError` - the opposite of
+what this project wants. Fixed by checking a short window of text after
+each unmatched edge mention for a rejection cue (`"not present"`, `"you
+proposed"`, `"cannot be used"`, etc.) before raising - a quoted-and-
+declined mention is skipped, an asserted one still raises. Verified
+against the real Attempt 3 transcript and a hand-built "real edge cited
+in prose" case, both correctly pass without raising (see
+`tests/test_rag_guard.py`).
+
+**Verified empirically**: all three live Finding 4 attempts re-run
+against the fixed pipeline still return normally (the model still
+resists on its own, as before), and the existing first-pass regression
+cases (`tests/test_adversarial_queries.py`) still hold - no regression.
+The new guard's actual triggering behavior is pinned by two deterministic
+unit tests in `tests/test_rag_guard.py`
+(`test_edge_guard_catches_a_fabricated_edge_between_two_real_ids`,
+`test_edge_guard_does_not_flag_a_quoted_rejection`) rather than a live
+LLM test, since - per the Opus review that judged Finding 4 - asserting
+on live refusal text would be non-deterministic and the model already
+resists this attack on its own; the guard's job is to be the backstop
+for when it doesn't.
+
+**Known residual scope limit, stated honestly rather than implied
+fixed**: `_check_no_ungrounded_edges()` only catches fabrications
+phrased with a technique ID, an edge-type keyword, and a second
+technique ID close enough together to match its detection pattern. A
+fabrication asserted in free prose with no such shape (e.g. "PowerShell
+reliably leads to Valid Accounts here" with no edge-type keyword or
+arrow at all) is not caught by either guard. This is a bounded,
+pattern-based check, not a general hallucination detector - consistent
+with this ADR's original "no general-purpose input-sanitization layer"
+alternatives-considered reasoning, applied to output validation instead
+of input sanitization this time.

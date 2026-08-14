@@ -319,19 +319,30 @@ Phase 1 structural graph and Phase 2 semantic edges.
   prompt extraction) held, with extraction logged as a held-but-caveated
   finding (verbatim reproduction refused, a full paraphrase leaked
   before the fix - see the entry for detail). **Second pass (2026-08-14)
-  closes the first pass's other open item**: three live attempts to get
-  fabricated confidence/sample_size/source/edge data attached to real,
-  already-grounded technique IDs past the deterministic guard - all
-  three were resisted by the model (Opus-reviewed), but none were
-  caught by `_check_no_ungrounded_techniques()` itself, since that guard
-  checks technique-ID presence only, never edge existence or attribute
-  integrity. Logged as Finding 4, HELD-but-unenforced (same honesty tier
-  as Finding 3, not a clean pass) - see docs/security-assessment.md's
-  2026-08-14 entry. `tests/test_rag_guard.py` (new, 2 tests, no LLM call,
-  never skips) pins both the guard's real catch and its known gap in
-  code. `ClaudeProvider` still hasn't been run through this assessment
-  (no Anthropic key on this machine, same gap as its general
-  live-testing status above).
+  closes the first pass's other open item, then fixes it same day**:
+  three live attempts to get fabricated confidence/sample_size/source/
+  edge data attached to real, already-grounded technique IDs past the
+  deterministic guard - all three were resisted by the model
+  (Opus-reviewed), but none were caught by `_check_no_ungrounded_
+  techniques()` itself, since that guard checks technique-ID presence
+  only, never edge existence. Logged as Finding 4, then fixed same
+  session on explicit request: a second guard, `_check_no_ungrounded_
+  edges()`, now checks that a cited edge (not just its two endpoint
+  IDs) actually exists in the facts block, while specifically not
+  flagging a correct refusal that quotes a fabricated edge back
+  verbatim while declining it - see docs/decisions/005's 2026-08-14
+  update for the full design (including the quoted-rejection
+  false-positive problem it had to solve) and docs/security-
+  assessment.md's Finding 4 for the live re-verification.
+  `tests/test_rag_guard.py` (5 tests, no LLM call, never skip) pins the
+  first guard's intentionally narrow scope, the second guard's catch,
+  and its quoted-rejection non-regression case. Residual, honestly
+  documented limit: the new guard only catches fabrications phrased
+  with a technique ID, an edge-type keyword, and a second technique ID
+  close together - unstructured prose asserting the same fabrication is
+  caught by neither guard. `ClaudeProvider` still hasn't been run
+  through this assessment (no Anthropic key on this machine, same gap
+  as its general live-testing status above).
 - `docs/future/multi-agent-ingestion.md` + `.claude/skills/scale-to-
   continuous-ingestion/` - **design-only, unbuilt, dated 2026-08-13**.
   Sketches a multi-agent orchestration approach for replacing
@@ -433,15 +444,18 @@ below) but only runs the deterministic/free tests, per design - no
 Anthropic/OpenAI secrets are configured for GitHub Actions at this
 stage. The `ai-security-assessment` skill's two passes so far have both
 covered `OpenAIProvider` only; the second pass (2026-08-14) closed out
-the first pass's "fabricated attribute" open item (see docs/security-
-assessment.md's Finding 4) but confirmed it as a genuine, still-open gap
-rather than fixing it - a structural guard change (validating cited
-*edges*, not just endpoint technique IDs, against the facts block) is
-future work. Remaining open items (see docs/security-assessment.md's
-most recent "Open items for the next pass"): re-running all cases
-against `ClaudeProvider` once a key exists (injection resistance is a
-property of the specific model, not just the prompt), and Finding 3's
-unfixed system-prompt-paraphrase leak.
+the first pass's "fabricated attribute" open item (docs/security-
+assessment.md's Finding 4) and, on same-day explicit request, fixed the
+underlying gap with a second deterministic guard,
+`_check_no_ungrounded_edges()` (docs/decisions/005's 2026-08-14 update) -
+not left as future work. Remaining open items (see docs/security-
+assessment.md's most recent "Open items for the next pass"): re-running
+all cases against `ClaudeProvider` once a key exists (injection
+resistance is a property of the specific model, not just the prompt),
+Finding 3's unfixed system-prompt-paraphrase leak, and the new guard's
+own honestly-documented residual limit (only catches edge-shaped
+fabrications with a technique ID + edge-type keyword + technique ID
+close together, not unstructured prose asserting the same thing).
 
 ## Do NOT
 
