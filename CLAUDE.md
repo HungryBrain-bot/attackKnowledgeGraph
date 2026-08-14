@@ -318,9 +318,20 @@ Phase 1 structural graph and Phase 2 semantic edges.
   other two cases in the same pass (system-prompt override, system-
   prompt extraction) held, with extraction logged as a held-but-caveated
   finding (verbatim reproduction refused, a full paraphrase leaked
-  before the fix - see the entry for detail). `ClaudeProvider` hasn't
-  been run through this assessment yet (no Anthropic key on this
-  machine, same gap as its general live-testing status above).
+  before the fix - see the entry for detail). **Second pass (2026-08-14)
+  closes the first pass's other open item**: three live attempts to get
+  fabricated confidence/sample_size/source/edge data attached to real,
+  already-grounded technique IDs past the deterministic guard - all
+  three were resisted by the model (Opus-reviewed), but none were
+  caught by `_check_no_ungrounded_techniques()` itself, since that guard
+  checks technique-ID presence only, never edge existence or attribute
+  integrity. Logged as Finding 4, HELD-but-unenforced (same honesty tier
+  as Finding 3, not a clean pass) - see docs/security-assessment.md's
+  2026-08-14 entry. `tests/test_rag_guard.py` (new, 2 tests, no LLM call,
+  never skips) pins both the guard's real catch and its known gap in
+  code. `ClaudeProvider` still hasn't been run through this assessment
+  (no Anthropic key on this machine, same gap as its general
+  live-testing status above).
 - `docs/future/multi-agent-ingestion.md` + `.claude/skills/scale-to-
   continuous-ingestion/` - **design-only, unbuilt, dated 2026-08-13**.
   Sketches a multi-agent orchestration approach for replacing
@@ -420,13 +431,17 @@ test (query layer vs. real EVTX telemetry) - extending coverage to
 `graph/` is unbuilt. CI now exists (`.github/workflows/test.yml`, see
 below) but only runs the deterministic/free tests, per design - no
 Anthropic/OpenAI secrets are configured for GitHub Actions at this
-stage. The `ai-security-assessment` skill's
-first pass covered `OpenAIProvider` only and left two documented open
-items (see docs/security-assessment.md's "Open items for the next
-pass"): re-running the same cases against `ClaudeProvider` once a key
-exists, and the deterministic guard's narrow scope (technique IDs only,
-not fabricated group names/confidence/sources attached to a real
-technique ID).
+stage. The `ai-security-assessment` skill's two passes so far have both
+covered `OpenAIProvider` only; the second pass (2026-08-14) closed out
+the first pass's "fabricated attribute" open item (see docs/security-
+assessment.md's Finding 4) but confirmed it as a genuine, still-open gap
+rather than fixing it - a structural guard change (validating cited
+*edges*, not just endpoint technique IDs, against the facts block) is
+future work. Remaining open items (see docs/security-assessment.md's
+most recent "Open items for the next pass"): re-running all cases
+against `ClaudeProvider` once a key exists (injection resistance is a
+property of the specific model, not just the prompt), and Finding 3's
+unfixed system-prompt-paraphrase leak.
 
 ## Do NOT
 

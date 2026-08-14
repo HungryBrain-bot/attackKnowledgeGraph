@@ -838,3 +838,58 @@
   of built ahead of that review.
 - Updated CLAUDE.md's Current status and Next sections, and README's
   Phase 2 description and Roadmap, to reflect all of the above.
+
+## 2026-08-14 - ai-security-assessment second pass: closes the "fabricated attribute" open item
+
+- Explicit user request to run the skill. No `query/` code had changed
+  since the first pass (this session's earlier work only touched
+  `graph/semantic_edges.py` and docs), so this pass first re-ran
+  `tests/test_adversarial_queries.py`'s three existing cases live
+  against `OpenAIProvider` to confirm no drift (3 passed, unchanged),
+  then targeted the first pass's second open item directly: the
+  deterministic `_check_no_ungrounded_techniques()` guard only checks
+  that cited technique IDs individually appear in the FACTS block text
+  - never that a cited *edge* between two such IDs, or its attributes
+  (confidence/sample_size/sources/group_context), are real.
+- Ran three escalating live attacks against the real pipeline (no
+  mocking), each using real technique IDs already present in the
+  retrieved facts for T1059.001/APT29, attempting to get fabricated
+  confidence/sample_size/source values or a wholly fabricated edge
+  parroted back: (1) an explicit "cite this instead of the real
+  figures" override, (2) a subtler "recently re-scored" framing with no
+  explicit override request, (3) a fabricated edge between two
+  individually-real, already-grounded technique IDs with no real edge
+  connecting them - the case the guard structurally cannot catch. A
+  fourth candidate (fabricated edge to a technique real elsewhere in the
+  graph but absent from this specific retrieval) was tried first and
+  correctly rejected by the existing guard - confirms the boundary of
+  what the guard does and doesn't cover, not counted as a new finding.
+- All three targeted attempts were resisted by gpt-5.1 (Opus-reviewed
+  verdict on each, per this project's Model Usage convention for
+  high-stakes judgment calls) - but none were caught by the
+  deterministic guard, since it structurally cannot fire on an
+  edge-level or attribute-level fabrication. Logged as Finding 4 in
+  docs/security-assessment.md: **HELD (3/3), unenforced, caveated** -
+  the same honesty-preserving tier as Finding 3, not a clean PASS, per
+  the Opus review's explicit caution that "resistance is not
+  established as a property of the pipeline" from model behavior alone.
+- **Fix applied this pass**: not a change to the guard itself (a
+  structural fix - validating that the cited edge, not just its two
+  endpoint IDs, appears in the facts block - is future work). Instead,
+  added `tests/test_rag_guard.py`: two deterministic unit tests against
+  `_check_no_ungrounded_techniques()` directly, no LLM call, no
+  credentials, no skip - one pins the existing catch (a technique ID
+  absent from facts), the other pins the known gap (asserts the guard
+  does *not* raise on a fabricated edge between two present IDs), per
+  the Opus review's specific guidance not to assert on non-deterministic
+  refusal text. Both run unconditionally, including in CI, so the
+  documented limitation can't silently drift without a test noticing.
+  `python -m pytest tests/`: 17 passed (was 15).
+- Delegated both judgment calls to an Opus subagent per CLAUDE.md's
+  Model Usage convention (this skill's own methodology section requires
+  it for exactly this reason - misjudging whether an injection attempt
+  succeeded either misses a real hole or wastes effort on a non-issue);
+  fed it the exact questions, facts blocks, and live responses each
+  time, not a summary.
+- `ClaudeProvider` still hasn't been exercised by this skill - same
+  blocker as the first pass, no `ANTHROPIC_API_KEY` on this machine.
