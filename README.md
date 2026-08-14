@@ -165,6 +165,7 @@ flowchart LR
     T_T1560_001 -->|"Lazarus Group"| T_T1071_001
     T_T1560_001 -.->|"APT29"| T_T1074_002
     T_T1566_001 -.->|"APT29"| T_T1204_002
+    T_T1566_001 -.->|"Lazarus Group"| T_T1204_002
     linkStyle 0 stroke:#C44E52,stroke-width:2px
     linkStyle 1 stroke:#4C72B0,stroke-width:2px
     linkStyle 2 stroke:#4C72B0,stroke-width:2px
@@ -181,6 +182,7 @@ flowchart LR
     linkStyle 13 stroke:#55A868,stroke-width:2px
     linkStyle 14 stroke:#4C72B0,stroke-width:2px
     linkStyle 15 stroke:#4C72B0,stroke-width:2px
+    linkStyle 16 stroke:#55A868,stroke-width:2px
 ```
 
 *Edge color by group: APT28 = `#C44E52`, APT29 = `#4C72B0`, Lazarus Group = `#55A868`. Dashed = TEMPORALLY_PRECEDES, solid = CAUSALLY_ENABLES.*
@@ -277,9 +279,12 @@ what would actually trigger picking it up.
 ### Current (Phases 1-3, built)
 - **Phase 1 - Structural graph**: real MITRE ATT&CK STIX data via
   `mitreattack-python`, 26 nodes / 54 edges.
-- **Phase 2 - Semantic edges**: 16 hand-authored, cited
+- **Phase 2 - Semantic edges**: 17 hand-authored, cited
   TEMPORALLY_PRECEDES/CAUSALLY_ENABLES edges across all 13 seed
-  techniques and all 3 seed groups. Combined graph: 26 nodes, 70 edges.
+  techniques and all 3 seed groups, plus 2 cross-group comparisons
+  (docs/decisions/006) annotating pairs of edges where two groups are
+  documented handling the same technique pair differently. Combined
+  graph: 26 nodes, 71 edges.
 - **Phase 3 - Graph RAG query layer**: deterministic single-technique/
   one-hop retrieval (docs/decisions/003), vendor-agnostic LLM provider
   abstraction (docs/decisions/004) with `ClaudeProvider` and
@@ -289,8 +294,12 @@ what would actually trigger picking it up.
   graph.
 
 ### Planned
-- Cross-group comparison edges (e.g. contrasting how APT29 vs. APT28
-  chain the same technique pair).
+- Surfacing cross-group comparisons (docs/decisions/006) in the query
+  layer itself - `query/retrieval.py`/`format_context()` don't yet
+  render the new `comparisons` edge attribute into the LLM's facts
+  block; needs an `ai-security-assessment` pass before it ships, since
+  it means a group-filtered answer can legitimately mention a second
+  group.
 - `KimiProvider` wired up for real once an API key exists - same
   five-minute path as `OpenAIProvider` (see CLAUDE.md's "Adding an LLM
   Provider").

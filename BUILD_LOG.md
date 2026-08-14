@@ -752,3 +752,89 @@
   shape - as a second starting design reference alongside the
   orchestration doc, with the same "first draft to revise, not a
   finished spec" framing).
+
+## 2026-08-14 - Cross-group comparison edges (closes Phase 2's last open item)
+
+- Closes the "cross-group comparison edges" open item this file has
+  carried since the 2026-08-13 "Semantic edge coverage completed" entry
+  (line 122 above) and README's Planned/Roadmap section.
+- Delegated the CTI research and schema-design reconciliation to an
+  Opus-tier subagent, per CLAUDE.md's Model Usage convention - this is
+  exactly the "reconciling conflicting evidence across CTI sources" /
+  "ADR-level schema decision" combination that convention calls out.
+  Result reviewed and independently spot-checked (one claim re-verified
+  via a fresh web search) before anything was written into the graph.
+- **Two real comparisons found, five candidates investigated and
+  rejected for lack of genuine same-pair cross-group sourcing** -
+  deliberately not padded to hit a round number; the rejected list is
+  longer than the accepted one. See docs/decisions/006-cross-group-
+  comparison.md for the full candidate-by-candidate reasoning.
+  - `cmp-001`: `{T1059.001, T1078}`, APT29 vs. APT28, same unordered
+    pair chained in **opposite directions** - APT29's SolarWinds
+    intrusion runs execution-then-credentials (Mandiant's "Domain Admin
+    <12 hours" timeline), APT28's GRU brute-force campaign runs
+    credentials-then-execution (password spray enables an Exchange
+    `ApplicationImpersonation` PowerShell cmdlet). Confidence 0.6.
+  - `cmp-002`: `T1566.001 -> T1204.002`, APT29 vs. Lazarus Group, same
+    direction but a **materially different mechanism** - APT29's
+    weaponized attachment is self-contained (macro in the file);
+    Lazarus's (McAfee's Operation North Star reporting, independently
+    re-verified via web search this session) carries no macro at all,
+    fetching a remote `.dotm` template disguised as a `.jpg` only once
+    opened, specifically to defeat static analysis. Confidence 0.7.
+    Required authoring a new Lazarus `T1566.001 -> T1204.002` edge
+    first (confidence 0.8, sample_size 2) since a comparison needs both
+    sides to already exist as real edges.
+- **Schema decision (docs/decisions/006-cross-group-comparison.md)**: a
+  comparison is authored as its own scored record in a new
+  `CROSS_GROUP_COMPARISONS` list and attached as a `comparisons`
+  attribute onto its two constituent edges by a new
+  `add_cross_group_comparisons()` pass - not modeled as a new edge type
+  between technique nodes. Rejected the edge-type alternative mainly
+  because `cmp-001`'s pair is unordered by definition (the divergence
+  IS the direction difference), so any arrow direction chosen for it
+  would visually assert a sequence that doesn't exist; and because
+  `query/retrieval.py`'s `group_context` filtering is single-valued and
+  would either need to fork or silently drop a two-group comparison.
+  `_find_semantic_edge()` was added as a named, early-exit helper (not
+  `next(..., default)`) per CLAUDE.md's Code Review Standards, and
+  `add_cross_group_comparisons()` raises on a comparison naming an edge
+  that doesn't exist - same fail-loud discipline as
+  `add_semantic_edges()`, so a comparison can never silently outlive a
+  corrected or removed edge.
+- **A real correction surfaced while verifying `cmp-001`**: the existing
+  APT28 `T1078 -> T1059.001` edge's evidence text had paraphrased the
+  wrong sentence of its source advisory - the RCE the advisory
+  describes is Exchange CVE-2020-0688/CVE-2020-17144 exploitation, not
+  a scripting interpreter. Re-grounded on the advisory's actual
+  PowerShell-relevant fact (an `ApplicationImpersonation` cmdlet grant,
+  which MITRE's own T1098.002 procedure example also cites this
+  advisory for) and raised confidence 0.65 -> 0.75. Documented inline in
+  the edge's `evidence` field and in the ADR, same pattern as the
+  2026-08-13 T1059.001/T1021.001 correction - this project's second
+  real instance of catching a wrong edge by re-reading a primary source
+  during unrelated work, not by dedicated auditing.
+- Ran end-to-end: 26 nodes, 71 edges (37 USES_TECHNIQUE, 17 HAS_TACTIC,
+  10 CAUSALLY_ENABLES, 7 TEMPORALLY_PRECEDES, up from 70/6), plus 2
+  cross-group comparisons attached as edge attributes (not counted in
+  the edge total). `python -m pytest tests/` still passes (15 passed)
+  with no changes to the query layer.
+- Updated `docs/attack-patterns/T1059.001-*.md`, `T1078-*.md`,
+  `T1566.001-*.md`, and `T1204.002-*.md` with a new "Cross-Group
+  Comparison" section each, and corrected the stale 0.65 confidence
+  mentioned in T1059.001's and T1078's prose to 0.75.
+- Regenerated diagrams (`python -m graph.generate_diagrams`) - the new
+  Lazarus edge shows up in T1566.001's and T1204.002's `## Flow`
+  sections and README's kill-chain diagram; ran twice to confirm the
+  idempotency guarantee still holds.
+- **Deliberately not built this session**: surfacing the new
+  `comparisons` attribute in `query/retrieval.py`/`format_context()`.
+  The user's ask was scoped to the semantic layer, not a new query-layer
+  phase; wiring it into query answers means a group-filtered answer can
+  legitimately mention a second group, which needs an
+  `ai-security-assessment` pass first (widens the already-logged open
+  item that the deterministic grounding guard checks technique IDs
+  only, not group attribution) - left as a README Planned item instead
+  of built ahead of that review.
+- Updated CLAUDE.md's Current status and Next sections, and README's
+  Phase 2 description and Roadmap, to reflect all of the above.

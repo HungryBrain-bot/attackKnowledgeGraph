@@ -222,7 +222,7 @@ Phase 1 structural graph and Phase 2 semantic edges.
   structural edges. Verified output: 26 nodes, 54 edges.
   `data/structural_graph.json` is its serialized output (node_link
   format) - left untouched by Phase 2, see docs/decisions/002.
-- `graph/semantic_edges.py` - adds 16 hand-authored, group-scoped
+- `graph/semantic_edges.py` - adds 17 hand-authored, group-scoped
   TEMPORALLY_PRECEDES/CAUSALLY_ENABLES edges (APT29, APT28, and Lazarus
   Group behavior) on top of the structural graph, each with a real
   citation, confidence score, and sample_size. All 13 seed techniques
@@ -230,9 +230,29 @@ Phase 1 structural graph and Phase 2 semantic edges.
   docs/decisions/002-semantic-edge-schema.md for the schema decisions
   (group-scoped, not universal; literal confidence/sample_size
   definitions) and the module's own docstring for full field docs.
-  Combined output: `data/graph_with_semantics.json`, 26 nodes, 70 edges
+  Combined output: `data/graph_with_semantics.json`, 26 nodes, 71 edges
   (37 USES_TECHNIQUE, 17 HAS_TACTIC, 10 CAUSALLY_ENABLES,
-  6 TEMPORALLY_PRECEDES).
+  7 TEMPORALLY_PRECEDES). **Cross-group comparisons (2026-08-14,
+  closing Phase 2's "unbuilt" note - see docs/decisions/006-cross-group-
+  comparison.md)**: `CROSS_GROUP_COMPARISONS`, a separate module-level
+  list of 2 real, sourced comparisons where two groups are documented
+  handling the same technique pair differently - `cmp-001`
+  ({T1059.001, T1078}, APT29 vs. APT28, opposite direction) and
+  `cmp-002` (T1566.001→T1204.002, APT29 vs. Lazarus Group, same
+  direction but different payload-staging mechanism). Each is attached
+  as a `comparisons` attribute onto its two constituent edges by
+  `add_cross_group_comparisons()` (not a new edge type - see the ADR
+  for why). `cmp-002` required adding one new Lazarus Group edge
+  (T1566.001→T1204.002) that didn't exist before. Verifying `cmp-001`
+  also surfaced that the existing APT28 `T1078→T1059.001` edge was
+  grounded in the wrong sentence of its source advisory (attributing
+  PowerShell to what the advisory actually describes as Exchange CVE
+  exploitation); re-grounded on the advisory's real PowerShell fact and
+  its confidence raised 0.65→0.75. `query/retrieval.py` and
+  `format_context()` do not yet surface the `comparisons` attribute in
+  query answers - that's future query-layer work (see README's Roadmap)
+  and would need an `ai-security-assessment` pass first, since it means
+  a group-filtered answer can legitimately mention a second group.
 - `docs/attack-patterns/` - 13 case files, one per seed technique
   (T1566.001, T1204.002, T1059.001, T1078, T1083, T1021.001, T1560.001,
   T1074.002, T1071.001, T1003.002, T1057, T1105, T1547.001).
@@ -384,11 +404,16 @@ Next: `query/ask.py` has been live-tested end-to-end via `OpenAIProvider`
 (three cases: group-filtered, group-inferred, and the no-technique-ID
 error path - see BUILD_LOG.md's 2026-08-13 "Query CLI end-to-end test"
 entry) - Claude itself still hasn't been, since no Anthropic credentials
-are configured on this machine. Cross-group comparison edges (e.g.
-contrasting how APT29 vs APT28 chain the same technique pair) are
-unbuilt; the lowest-confidence edges (0.65 tier - T1547.001's two
-incoming edges, T1059.001->T1105 for APT28) would benefit from deeper
-sourcing if time allows. Retrieval is single-technique/one-hop by
+are configured on this machine. Cross-group comparison edges are now
+built (2 real comparisons, docs/decisions/006 - see the Current status
+entry above); surfacing them in `query/retrieval.py`'s output is the
+new unbuilt follow-on. The lowest-confidence edges (0.65 tier -
+T1547.001's two incoming edges, T1059.001->T1105 for APT28) would
+benefit from deeper sourcing if time allows - as would re-verifying the
+APT29 `T1105->T1003.002` edge's "not an inference" claim, which surfaced
+as a possible over-statement while re-reading its source report during
+this session's cross-group research but wasn't independently confirmed
+either way. Retrieval is single-technique/one-hop by
 design (docs/decisions/003) - multi-hop or multi-entity queries are a
 future extension, not a gap in this pass. `tests/` has its first real
 test (query layer vs. real EVTX telemetry) - extending coverage to

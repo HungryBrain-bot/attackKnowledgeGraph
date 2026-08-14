@@ -37,9 +37,25 @@ capture (see the note on this in T1003.002's case file).
   0.85, in) and `T1078 --TEMPORALLY_PRECEDES--> T1057` (APT29,
   confidence 0.7, out) on the SolarWinds side; `T1078
   --CAUSALLY_ENABLES--> T1021.001` (APT28, confidence 0.75, out),
-  `T1078 --CAUSALLY_ENABLES--> T1059.001` (APT28, confidence 0.65, out),
+  `T1078 --CAUSALLY_ENABLES--> T1059.001` (APT28, confidence 0.75, out),
   and `T1078 --CAUSALLY_ENABLES--> T1003.002` (APT28, confidence 0.85,
   out) on the Nearest Neighbor side.
+
+## Cross-Group Comparison
+This technique sits at one end of this project's clearest cross-group
+contrast (see docs/decisions/006-cross-group-comparison.md, comparison
+`cmp-001`, confidence 0.6): for APT29, valid-account access is the
+*outcome* of the SolarWinds intrusion's `T1059.001 -> T1078` chain
+(PowerShell/Cobalt Strike execution first, Domain Admin less than 12
+hours later). For APT28's GRU brute-force campaign, it's the reverse -
+`T1078 -> T1059.001` - credentials obtained by Kubernetes-distributed
+password spraying are the *entry ticket* that lets an Exchange
+`ApplicationImpersonation` PowerShell cmdlet run at all. Same unordered
+pair, opposite direction, opposite role for the credentials (prize vs.
+precondition), and a different plane (on-prem AD vs. M365/Exchange
+identity). Stored as a `comparisons` annotation on both edges, not a
+third edge between the same two nodes - a comparison this direction-
+sensitive can't honestly be given a single arrow.
 
 ## Evidence and Sources
 - Mandiant UNC2452 APT29 April 2022, NSA Joint Advisory SVR SolarWinds
@@ -48,8 +64,10 @@ capture (see the note on this in T1003.002's case file).
 - Volexity Nearest Neighbor Attack Nov 2024 (APT28, both credential
   instances - RDP-into-pivot and Wi-Fi-into-target).
 - Cybersecurity Advisory GRU Brute Force Campaign July 2021 (APT28,
-  credential-to-RCE/lateral-movement pattern, advisory-level not
-  incident-specific - see the lower confidence score on that edge).
+  credential-to-PowerShell pattern - re-grounded 2026-08-14 on the
+  advisory's actual `ApplicationImpersonation` cmdlet-grant fact rather
+  than its RCE sentence, which is Exchange CVE exploitation, not
+  PowerShell; confidence raised 0.65 -> 0.75 accordingly).
 
 ## What This Enables
 "A compromised account was confirmed for an APT28-attributed intrusion -
@@ -74,6 +92,6 @@ flowchart LR
     T_T1078 -->|"CAUSALLY_ENABLES<br/>APT28, 0.85"| T_T1003_002
     T_T1078 -->|"CAUSALLY_ENABLES<br/>APT28, 0.75"| T_T1021_001
     T_T1078 -.->|"TEMPORALLY_PRECEDES<br/>APT29, 0.7"| T_T1057
-    T_T1078 -->|"CAUSALLY_ENABLES<br/>APT28, 0.65"| T_T1059_001
+    T_T1078 -->|"CAUSALLY_ENABLES<br/>APT28, 0.75"| T_T1059_001
 ```
 <!-- END GENERATED -->
