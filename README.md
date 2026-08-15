@@ -272,7 +272,13 @@ same level as today's manually-cited ones) is sketched at design level
 only in [`docs/future/multi-agent-ingestion.md`](docs/future/multi-agent-ingestion.md).
 It's deliberately deferred for the same reason `ingestion/` is an empty
 placeholder today (docs/decisions/001-seed-scope.md) - see that doc for
-what would actually trigger picking it up.
+what would actually trigger picking it up. A related, separately-scoped
+design doc,
+[`docs/future/detection-coverage.md`](docs/future/detection-coverage.md),
+sketches `DETECTED_BY` edges and a coverage-gap view on top of the
+interactive graph visualization above - also design-only, and explicit
+that it can't be populated honestly without real, environment-specific
+detection rule data (public CTI data doesn't include that).
 
 ## Roadmap
 

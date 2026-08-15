@@ -951,3 +951,39 @@
   pattern - free prose asserting the same fabrication without that
   shape is caught by neither guard. Logged as an open item for the next
   `ai-security-assessment` pass, not silently claimed as closed.
+
+## 2026-08-15 - Detection coverage: design addendum (not built)
+
+- Explicit request for a design-only addendum, not an implementation -
+  `docs/future/schema_reference/relationship_types.json` already defines
+  a `DETECTED_BY` relationship type (with a `coverage_states` vocabulary:
+  `FULL`/`PARTIAL`/`WEAK`/`NONE`/`UNKNOWN`) that has sat unused since
+  that schema reference was written; nothing in `graph/` or `visualize/`
+  uses it.
+- Wrote `docs/future/detection-coverage.md` as its own file rather than
+  folding it into `docs/future/multi-agent-ingestion.md` - substantial
+  enough (a `Detection` node type, `DETECTED_BY` edge shape, and a
+  coverage-gap visualization design layered onto the pyvis viz built
+  earlier this session) to warrant its own doc, same "design only, not
+  built" banner convention as the multi-agent-ingestion doc, dated
+  2026-08-15. Cross-linked from multi-agent-ingestion.md's relationship-
+  type-vocabulary section and from README's "Future Direction" section.
+- The doc is explicit, per the request, that this can't be populated
+  honestly today: public ATT&CK/CTI data describes adversary behavior,
+  not which rules a specific, real, deployed detection stack actually
+  catches - that fact only exists inside a real environment, with no
+  public source to cite the way `graph/semantic_edges.py`'s edges cite
+  Secureworks or Mandiant reporting. Explicit "no synthetic/example
+  coverage data, ever" instruction carried into the doc itself, tied
+  back to the same reasoning that led to excluding the fabricated-
+  Mandiant-citation example fixture from the v0.3.0 schema reference
+  earlier in the project (see this file's 2026-08-13 entry for that
+  exclusion).
+- No code changes - `ingestion/` remains empty, `graph/build_graph.py`
+  gets no `Detection` node type, `visualize/render_graph.py` gets no
+  coverage-gap layer. Trigger condition for actually building this:
+  access to real, environment-specific detection rule data, stated
+  explicitly in the doc's own "What would trigger picking this up"
+  section.
+- Added a dedicated CLAUDE.md Current status entry for this doc, matching
+  the existing entry for `docs/future/multi-agent-ingestion.md`.

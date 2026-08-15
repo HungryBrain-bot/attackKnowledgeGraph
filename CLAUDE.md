@@ -368,6 +368,25 @@ Phase 1 structural graph and Phase 2 semantic edges.
   independently, not just taken on the word it was given - see
   BUILD_LOG.md's entry for this session for the exclusion reasoning in
   full.
+- `docs/future/detection-coverage.md` - **also design-only, unbuilt,
+  dated 2026-08-15**. Works out what actually using
+  `relationship_types.json`'s already-defined but unused `DETECTED_BY`
+  relationship type would look like: a new `Detection` node type, a
+  `DETECTED_BY` edge carrying `coverage_state` (`FULL`/`PARTIAL`/`WEAK`/
+  `NONE`/`UNKNOWN`), `conditions`, and a real citation, and a coverage-
+  gap view (which techniques lack `FULL` coverage) layered onto
+  `visualize/render_graph.py`'s node styling and dim-not-remove filter
+  pattern. Explicit that none of it can be populated honestly today:
+  public ATT&CK/CTI data describes adversary behavior, not what a real,
+  specific, deployed detection stack actually catches - that fact only
+  exists inside a real environment, so **no synthetic/example coverage
+  data may ever be added** to make the demo look more complete than it
+  is. Nothing built - no `Detection` node type in `graph/build_graph.py`,
+  no coverage-gap layer in `visualize/render_graph.py`. Cross-linked from
+  `multi-agent-ingestion.md`'s "Schema design reference" section and from
+  README's "Future Direction" section. Trigger to actually build it:
+  access to real, environment-specific detection rule data - not a
+  hypothetical or public dataset standing in for one.
 - `.claude/skills/fetch-test-logs/` - a data-fetching skill + script for
   real Atomic Red Team-simulated EVTX/JSON logs
   ([arniki/atomic-evtx](https://github.com/arniki/atomic-evtx)), cross-

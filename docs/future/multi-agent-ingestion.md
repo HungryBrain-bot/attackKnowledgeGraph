@@ -212,7 +212,13 @@ probabilistic-only successor), `DETECTED_BY`, `MITIGATED_BY`,
 relationship name, and valid source/target entity types (e.g.
 `DETECTED_BY` can only target a `detection` node, never a `technique`) -
 so a future validation step can reject a structurally nonsensical edge
-before it ever reaches a human reviewer.
+before it ever reaches a human reviewer. `DETECTED_BY` specifically -
+what using it for real would add to the graph, a coverage-gap
+visualization layered onto `visualize/render_graph.py`, and why it can't
+be populated honestly without real, environment-specific detection rule
+data - is worked out in its own design doc,
+[`docs/future/detection-coverage.md`](detection-coverage.md), rather than
+here; same "design only, not built" status.
 
 ### Confidence: computed by a deterministic function, never by an LLM directly
 
