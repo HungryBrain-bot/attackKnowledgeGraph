@@ -552,14 +552,24 @@ the first pass's "fabricated attribute" open item (docs/security-
 assessment.md's Finding 4) and, on same-day explicit request, fixed the
 underlying gap with a second deterministic guard,
 `_check_no_ungrounded_edges()` (docs/decisions/005's 2026-08-14 update) -
-not left as future work. Remaining open items (see docs/security-
-assessment.md's most recent "Open items for the next pass"): re-running
-all cases against `ClaudeProvider` once a key exists (injection
-resistance is a property of the specific model, not just the prompt),
-Finding 3's unfixed system-prompt-paraphrase leak, and the new guard's
-own honestly-documented residual limit (only catches edge-shaped
-fabrications with a technique ID + edge-type keyword + technique ID
-close together, not unstructured prose asserting the same thing).
+not left as future work. **Finding 3's system-prompt-paraphrase leak is
+now fixed too (2026-08-15, on explicit request)**: an explicit
+anti-disclosure rule added to `SYSTEM_PROMPT_TEMPLATE`, live re-tested
+(3 framings including 2 new ones beyond the original attack, plus both
+prior findings' cases as a regression check) and Opus-reviewed as CLEAN
+- see docs/security-assessment.md's 2026-08-15 entry. Caveated, not
+claimed as airtight: prompt-level only, no deterministic guard (unlike
+Findings 1/4 - not achievable the same way for arbitrarily-reworded
+prose, per the Opus review), and only 3 framings tried against gpt-5.1.
+Remaining open items (see docs/security-assessment.md's most recent
+"Open items for the next pass"): re-running all cases against
+`ClaudeProvider` once a key exists (injection/extraction resistance is a
+property of the specific model, not just the prompt), untried
+extraction framings (roleplay, translation pretext, incremental partial
+extraction), and the edge-existence guard's own honestly-documented
+residual limit (only catches edge-shaped fabrications with a technique
+ID + edge-type keyword + technique ID close together, not unstructured
+prose asserting the same thing).
 `visualize/render_graph.py` is now built (2026-08-15, see the Current
 status entry above) - the coverage-gap layer sketched in
 docs/future/detection-coverage.md is the new unbuilt follow-on, gated on
