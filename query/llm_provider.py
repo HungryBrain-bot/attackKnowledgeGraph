@@ -134,6 +134,31 @@ PROVIDERS: dict[str, type[LLMProvider]] = {
     "kimi": KimiProvider,
 }
 
+# Which env var(s) each provider needs to actually make a call. Used only
+# by has_credentials() below for a proactive, no-network-call check - not
+# by the providers themselves, which still read credentials the normal
+# way (the SDK's own env var lookup, or KimiProvider's NotImplementedError).
+CREDENTIAL_ENV_VARS: dict[str, tuple[str, ...]] = {
+    "claude": ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"),
+    "openai": ("OPENAI_API_KEY",),
+    "kimi": ("KIMI_API_KEY",),
+}
+
+
+def has_credentials(name: str | None = None) -> bool:
+    """Whether the environment has credentials for the configured (or
+    given) provider, without making a network call. `KimiProvider` has no
+    real key wired up yet (it's a stub - see its class docstring), so this
+    always returns False for "kimi" today, correctly.
+
+    Callers like query/ask.py use this to degrade gracefully (skip the
+    LLM call, show retrieved facts only) instead of attempting a call
+    that's guaranteed to fail with an auth error - a UX concern for the
+    CLI, not a change to `generate()`'s own contract, which still raises
+    on failure per this module's docstring."""
+    name = name or os.environ.get("LLM_PROVIDER", "claude")
+    return any(os.environ.get(v) for v in CREDENTIAL_ENV_VARS.get(name, ()))
+
 
 def get_provider(name: str | None = None) -> LLMProvider:
     """Looks up a provider by name (default: `LLM_PROVIDER` env var, or

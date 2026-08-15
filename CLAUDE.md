@@ -296,12 +296,27 @@ Phase 1 structural graph and Phase 2 semantic edges.
   APT29 facts both returned correct, correctly-cited answers. **Claude
   is still not live-tested - explicitly deferred, not skipped or dropped:
   a missing `ANTHROPIC_API_KEY` is the only blocker, everything else is
-  already built and ready.** Checked again as of this session: no
-  `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` env vars, no `ant auth`
-  profile (`ant` on this machine resolves to Apache Ant, not the
-  Anthropic CLI) - the failure mode is the SDK's own clean "could not
-  resolve authentication method" error at client construction, not a
-  bug in this project's code. `ClaudeProvider` itself, the CLI
+  already built and ready.** No `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN`
+  env vars are set on this machine, no `ant auth` profile (`ant` here
+  resolves to Apache Ant, not the Anthropic CLI). Previously, this meant
+  `python -m query.ask` (which defaults to `LLM_PROVIDER=claude`) printed
+  the retrieved facts followed by a raw Python traceback from the SDK's
+  "could not resolve authentication method" error - a real UX bug (fixed
+  2026-08-15 on explicit request, not just an accepted rough edge): `query
+  /llm_provider.py`'s `has_credentials()` now checks, without a network
+  call, whether the configured provider's env var is actually set;
+  `query/ask.py` calls it before ever attempting the LLM call and, if
+  it's false, prints the facts plus a one-line note and returns cleanly
+  (exit 0) instead of calling `answer()` at all. This only changes the
+  CLI's degradation behavior - `rag.answer()`/`generate()` still raise on
+  a real failure exactly as before, per this module's "raise, don't
+  fabricate" contract; the CLI now avoids attempting a call it already
+  knows will fail, rather than catching and hiding the resulting error.
+  Verified both paths for real: no credentials for the active provider
+  (`LLM_PROVIDER` unset, defaults to Claude, no Anthropic key) now prints
+  facts-only with no traceback and exit code 0; `LLM_PROVIDER=openai`
+  (which does have a key configured) still prints the full cited answer
+  as before. `ClaudeProvider` itself, the CLI
   (`python -m query.ask`), and the exact test cases to run are all
   already in place - the moment a key exists, the full sequence is:
   (1) add `ANTHROPIC_API_KEY=sk-ant-...` to `.env`; (2) re-run the same

@@ -15,6 +15,7 @@ import sys
 
 from graph.seed_config import SEED_GROUPS
 from query.graph_loader import load_graph
+from query.llm_provider import has_credentials
 from query.rag import answer
 from query.retrieval import format_context, get_technique_context
 
@@ -60,6 +61,15 @@ def main() -> None:
     facts = format_context(context)
     print("--- Retrieved facts (from the graph, not the LLM) ---")
     print(facts)
+
+    if not has_credentials():
+        print(
+            "\n(No LLM provider credentials configured - showing retrieved "
+            "facts only. Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env, "
+            "matching LLM_PROVIDER, for a formatted answer.)"
+        )
+        return
+
     print("\n--- Answer ---")
     print(answer(question, facts))
 

@@ -1245,3 +1245,42 @@
   - `python -m pytest tests/`: 30 passed (was 20), no regressions from
     any of the session's changes (bug fix, beautification, or these two
     lens fixes).
+
+## 2026-08-15 - CLI degrades to facts-only when no LLM credentials, instead of a traceback
+
+- User ran `python -m query.ask "what happens after T1059.001 for APT29?"`
+  for real and hit exactly the gap CLAUDE.md already documented (no
+  `ANTHROPIC_API_KEY` on this machine, `LLM_PROVIDER` defaults to
+  `claude`): the retrieved-facts block printed correctly, then the
+  process crashed with a raw Python traceback from the Anthropic SDK's
+  "could not resolve authentication method" error. Explicit request to
+  fix it: no LLM credentials should mean facts-only output, not an
+  error; credentials present should still produce the full cited answer
+  as before.
+- Added `has_credentials()` to `query/llm_provider.py` - checks whether
+  the configured (or given) provider's env var is actually set
+  (`CREDENTIAL_ENV_VARS`, a small name -> env-var-names map), with no
+  network call. `query/ask.py` calls it before ever attempting the LLM
+  call; if it's false, prints the facts plus a one-line note and returns
+  cleanly (exit 0) instead of calling `answer()` at all.
+- Deliberately did not touch `rag.answer()`/`generate()`'s own contract -
+  they still raise on failure exactly as before (CLAUDE.md: "Raise on
+  failure - never return a placeholder or fabricated string"). This is a
+  CLI-level UX fix (avoid attempting a call already known to fail, given
+  the environment), not a change to what a real API failure does for a
+  direct caller of `answer()` - those two are different situations and
+  should stay different: "no key configured" is an expected, common
+  environment state; "the API call itself failed" is a real error a
+  caller still needs to see.
+- Verified both paths for real, not just reasoned about: (1) with the
+  actual current `.env` (`OPENAI_API_KEY` set, `LLM_PROVIDER` unset so
+  it defaults to `claude`, no Anthropic key) - facts print, then a clean
+  one-line note, exit code 0, no traceback; (2) `LLM_PROVIDER=openai
+  python -m query.ask "..."` (a provider that does have a key configured)
+  - facts print, followed by the full real cited answer from
+  `gpt-5.1`, exactly as before this change.
+- `python -m pytest tests/`: 30 passed, no regressions.
+- Updated CLAUDE.md's `OpenAIProvider`/`ClaudeProvider` status paragraph,
+  which previously described the raw-traceback behavior as expected and
+  "not a bug in this project's code" - no longer accurate now that the
+  CLI handles it deliberately.
