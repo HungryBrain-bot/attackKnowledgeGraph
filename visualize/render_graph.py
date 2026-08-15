@@ -326,7 +326,7 @@ CONTROLS_TEMPLATE = """
   <div class="controls-row">
     <span class="controls-label">Filter by group:</span>
     <button type="button" class="group-filter-btn active" data-group=""
-      style="--btn-color: {all_groups_color};" onclick="applyGroupFilter('')">All groups</button>
+      style="--btn-color: {all_groups_color};">All groups</button>
     {group_buttons}
   </div>
   <div class="legend-row">
@@ -428,6 +428,10 @@ FILTER_SCRIPT_TEMPLATE = """
     }});
   }}
 
+  document.querySelectorAll('.group-filter-btn').forEach(function (b) {{
+    b.addEventListener('click', function () {{ applyGroupFilter(b.dataset.group); }});
+  }});
+
   network.once('stabilizationIterationsDone', function () {{
     network.setOptions({{physics: false}});
   }});
@@ -436,10 +440,23 @@ FILTER_SCRIPT_TEMPLATE = """
 
 
 def _inject_controls(html_text: str, group_names: list[str]) -> str:
+    # No `onclick="applyGroupFilter('{name}')"` here on purpose - see
+    # docs/security-assessment.md's 2026-08-15 web-security finding.
+    # html.escape() makes `name` safe as an HTML *attribute* value, but an
+    # inline event-handler attribute is also a nested JS string context: the
+    # browser HTML-decodes the attribute before handing it to the JS parser,
+    # so an escaped `'` decodes back to a literal quote that closes the JS
+    # string early - html-escaping alone does not make data safe to embed in
+    # `onclick`. Every group name today is a hardcoded constant
+    # (graph/seed_config.py's SEED_GROUPS) with nothing to exploit, but this
+    # module can't assume that stays true forever, so it doesn't build JS
+    # source from data at all: `data-group` carries the value as a plain
+    # attribute, and FILTER_SCRIPT_TEMPLATE's click listener reads it via
+    # `.dataset.group`, which returns the attribute's literal string with no
+    # re-parsing step for any character to hide inside.
     buttons = "\n    ".join(
         f'<button type="button" class="group-filter-btn" data-group="{html.escape(name)}" '
-        f'style="--btn-color: {GROUP_COLORS.get(name, "#3a3a37")};" '
-        f'onclick="applyGroupFilter(\'{html.escape(name)}\')">{html.escape(name)}</button>'
+        f'style="--btn-color: {GROUP_COLORS.get(name, "#3a3a37")};">{html.escape(name)}</button>'
         for name in group_names
     )
     # A generic mid-tone stand-in for the swatches below - semantic edges are

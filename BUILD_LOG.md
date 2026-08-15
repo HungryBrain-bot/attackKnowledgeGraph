@@ -1153,3 +1153,95 @@
   (scripted call confirmed opacity changes and the active button's
   `--btn-color` swap both still work) - the CSS/markup changes didn't
   touch the filter's JS logic, but re-checked rather than assumed.
+
+## 2026-08-15 - Broadened ai-security-assessment into red-team-assessment (3 lenses), ran the 2 new ones for real
+
+- Explicit request to rename/restructure `ai-security-assessment` into a
+  project-wide, three-lens skill (LLM/code/web), keeping git history
+  sensible since this is an expansion, not a rewrite. Used `git mv
+  .claude/skills/ai-security-assessment .claude/skills/red-team-
+  assessment` rather than delete+recreate. Rewrote `SKILL.md`: the LLM
+  lens section is the original skill's methodology, scope unchanged; two
+  new lens sections (code, web/frontend) added with their own trigger
+  conditions, methodology, and "what done looks like." Broadened trigger
+  conditions per the request: not just query/rag.py's prompt path
+  anymore - any new dependency in requirements.txt, any code handling a
+  path/filename from external input, and any new user-facing artifact or
+  external data source wired into any part of the project (a new
+  visualization, a new file format, a future ingestion source).
+- Updated the cross-reference in `.claude/skills/build-and-document/
+  SKILL.md` to the new name and the broadened trigger list. Updated
+  CLAUDE.md throughout (Architecture bullet, the two Current status
+  entries, the "Next" paragraph) and `docs/security-assessment.md`'s
+  header. Historical dated entries in `docs/security-assessment.md` and
+  existing ADRs (docs/decisions/005, 006) were left referring to
+  `ai-security-assessment` by name where they describe past events under
+  that name - not retitled, matching this project's own convention of
+  not rewriting history in dated logs. `README.md`'s one forward-looking
+  reference (a "Planned" item still needing a pass before it ships) was
+  updated to the new name, since it describes future work, not a past
+  event.
+- **Ran the code and web/frontend lenses for real against the current
+  repo, same session** - see docs/security-assessment.md's 2026-08-15
+  entry for full writeups; summarized here for the build-log record:
+  - **Code lens**: grepped the whole repo for hardcoded secrets/keys
+    (none found; confirmed `.env` gitignored and untracked),
+    eval/exec/pickle/subprocess/os.system/unsafe yaml.load (none found),
+    and SQL/database usage (none - documented as not-applicable-yet
+    rather than silently skipped). Ran `pip-audit` (installed fresh,
+    v2.10.1) against `requirements.txt`'s full resolved dependency set
+    (80 packages including transitive deps, not just the 8 top-level
+    pins) - zero known vulnerabilities. Found and fixed a real path-
+    traversal gap in `.claude/skills/fetch-test-logs/
+    fetch_test_logs.py`'s `download_scenario()`: a filename taken
+    directly from the GitHub API's file-listing response was joined onto
+    a local path with no validation. Low severity in practice (the
+    upstream source is a fixed, trusted public repo, not attacker-
+    controlled) but a real defensive gap; fixed with a
+    `_safe_filename()` guard. Caught and fixed a real bug in the guard
+    itself before shipping it: the first version checked only `name !=
+    Path(name).name`, and testing it against a table of malicious inputs
+    (not just eyeballing the logic) showed `".."` sailed through
+    unchanged, since `Path("..").name` returns `'..'`, not `''` - added
+    an explicit `in ("", ".", "..")` check to close that.
+  - **Web/frontend lens**: first real run, against
+    `visualize/render_graph.py`'s generated `docs/graph_visualization.
+    html` (this project's first browser-rendered artifact). Re-diagnosed
+    the earlier `<br>`/`innerText` tooltip fix from this session as this
+    lens's first finding - the direction (over-escaping for a threat
+    model that doesn't apply to `innerText`, never a live XSS hole) is
+    exactly what this lens exists to get right rather than assume.
+    Found and fixed a second, more serious issue: the group-filter
+    buttons' `onclick="applyGroupFilter('{html.escape(name)}')"` markup
+    is exploitable in principle - `html.escape()` protects the HTML
+    *attribute* but not the *nested JS string* inside an inline
+    event-handler attribute, since the browser HTML-decodes the
+    attribute before the JS parser ever sees it. Proved this for real,
+    not just argued it: built a crafted group name
+    (`"X'); document.title='PWNED'; //"`) that, after the exact escaping
+    `render_graph.py` used to do, executed as real JavaScript in
+    headless Chrome (`document.title` became `PWNED`). Not currently
+    reachable - every group name is a hardcoded constant in
+    `graph/seed_config.py`'s `SEED_GROUPS`, none contain a quote - but
+    logged and fixed anyway since it's exactly the "what if this data
+    ever comes from a less-trusted source" case this lens was created
+    for. Fixed by removing inline `onclick` entirely: buttons now carry
+    the group name only via a `data-group` attribute, read by a real
+    `addEventListener` in `FILTER_SCRIPT_TEMPLATE` - no JS source is
+    ever built from data. Also confirmed, by grepping the bundled
+    vis-network source for `fillText`, that node/edge labels are
+    canvas-rendered and therefore immune to HTML/script injection by
+    construction, regardless of content - a real, verified clean finding
+    rather than an assumption.
+  - Re-verified after the `onclick` fix: idempotent (byte-identical
+    rerun), and a real scripted `.click()` on the actual generated
+    button (not the removed `onclick`) confirmed the filter still works
+    end-to-end (correct opacity changes, correct active-button state).
+  - Added `tests/test_fetch_test_logs_safety.py` (10 parametrized cases,
+    no network call, never skip) pinning `_safe_filename()`'s behavior -
+    including the exact `".."` case that broke the guard's first draft -
+    matching the project's existing pattern of a permanent deterministic
+    test for a real security fix (`tests/test_rag_guard.py`, Finding 4).
+  - `python -m pytest tests/`: 30 passed (was 20), no regressions from
+    any of the session's changes (bug fix, beautification, or these two
+    lens fixes).

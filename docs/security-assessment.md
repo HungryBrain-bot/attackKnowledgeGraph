@@ -1,11 +1,14 @@
-# AI Security Assessment Log
+# Security Assessment Log
 
 Append-only - one dated entry per assessment pass, oldest first. Written
-by the `ai-security-assessment` skill (`.claude/skills/ai-security-
-assessment/SKILL.md`); see that file for methodology, trigger
-conditions, and how to add a new adversarial test case. Every test in a
-pass gets a finding here, whether it held or broke - a failing test is
-never silently dropped from this log.
+by the `red-team-assessment` skill (`.claude/skills/red-team-assessment/
+SKILL.md`; renamed and broadened 2026-08-15 from `ai-security-assessment`
+into three lenses - LLM, code, web/frontend - see that file for
+methodology, trigger conditions, and how to add a new check). Every
+check in a pass gets a finding here, whether it held/was clean or broke -
+a failing check is never silently dropped from this log. Passes before
+2026-08-15 covered the LLM lens only, under the skill's original name and
+scope; they are left as originally written below, not retitled.
 
 ---
 
@@ -319,3 +322,218 @@ closed by the new, separate guard, not by widening the first one.
 - `ClaudeProvider` still hasn't been exercised by this skill - same
   blocker as the first pass (no `ANTHROPIC_API_KEY` configured on this
   machine).
+
+---
+
+## 2026-08-15 - First code and web/frontend lens pass (skill broadened same day)
+
+**Scope**: the skill was renamed and broadened from `ai-security-
+assessment` (LLM-only) to `red-team-assessment` (LLM + code +
+web/frontend) this session - see the skill's own file for the full
+methodology. This entry is the first real run of the two new lenses,
+against the whole repo (code lens) and `visualize/render_graph.py`'s
+generated `docs/graph_visualization.html` (web lens, the project's first
+browser-rendered artifact, also built this session). Every check below
+was actually run against real files/tools, not reasoned about from
+memory - several findings below exist specifically because a real check
+caught something a memory-based read would have missed or gotten
+backwards.
+
+### Web-lens Finding 1: tooltip `<br>` renders as literal text - BROKE, fixed same session
+
+**Context**: this finding traces back to a user bug report against
+`visualize/render_graph.py` earlier the same session, fixed before this
+skill's broadening happened - logged here because it's exactly the
+category of finding this lens exists to catch, and because the direction
+of the bug matters for how this lens is written.
+
+**Checked**: whether `_tooltip()`'s output (joined with `<br>`, each line
+`html.escape()`'d) actually renders as intended in the real generated
+page.
+
+**Found**: it did not. Grepped the inlined vis-network 9.1.2 source
+bundled into the generated HTML for how it renders a string `title` and
+found `setText(t){ ... else this.frame.innerText=t }` - vis-network
+renders tooltip strings via `element.innerText`, never `innerHTML`.
+Verified the consequence directly in headless Chrome rather than assumed
+from that one line of source: setting `el.innerText` to a string
+containing a literal `<br>` produces the four characters `<br>` on
+screen, not a line break; setting it to a string containing a real `\n`
+produces an actual line break (confirmed via `el.innerHTML` round-trip
+after each assignment). The same test showed the `html.escape()` call
+was independently wrong: escaping `&` to `&amp;` before an `innerText`
+assignment displays the literal text `&amp;` on screen, since `innerText`
+doesn't decode entities on the way in.
+
+**Direction, stated explicitly since it matters for how this lens reads
+severity**: this is "content is being escaped when it shouldn't be," not
+a missing-escaping hole. `innerText` never parses its input as markup or
+script, so this tooltip content was never an XSS vector regardless of
+whether it was escaped - the bug was a display bug caused by defending
+against an HTML-parsing threat model that doesn't apply to this
+particular renderer, not a security hole that happened to also look
+wrong on screen. Getting this direction backwards - assuming `innerHTML`
+when the real mechanism is `innerText`, or vice versa - is precisely the
+mistake this lens's methodology section warns against making from memory
+instead of verifying against the real generated source.
+
+**Fix**: `_tooltip()` now joins lines with `\n` and does not escape.
+Re-verified in headless Chrome after the fix (a real `edges.get(...)
+.title` string round-tripped through a fresh `d.innerText = title;
+d.innerHTML` read showed real `<br>` elements and a correctly-rendered
+`&`, not `&amp;`) and re-verified idempotent (two consecutive runs,
+byte-identical output).
+
+### Web-lens Finding 2: group-name string built into an inline `onclick` handler - CONFIRMED exploitable, not currently reachable, fixed same session
+
+**Checked**: whether `html.escape()`-ing a `Group` node's `name` before
+interpolating it into `onclick="applyGroupFilter('{name}')"` (the filter
+buttons' original markup) actually makes that value safe.
+
+**Found**: it does not, and this is confirmed by a real, working proof
+of concept, not a theoretical concern. Built a minimal HTML page
+reproducing the exact pattern with a crafted name:
+
+```python
+malicious = "X'); document.title='PWNED'; //"
+escaped = html.escape(malicious)   # "X&#x27;); document.title=&#x27;PWNED&#x27;; //"
+```
+
+embedded exactly as `render_graph.py` did:
+`onclick="applyGroupFilter('X&#x27;); document.title=&#x27;PWNED&#x27;; //')"`.
+Loaded in headless Chrome and called `.click()` on the button - the
+page's `<title>` became `PWNED`, meaning the injected `document.title=...`
+statement executed as real JavaScript.
+
+**Why `html.escape()` didn't save it**: an inline event-handler attribute
+is a nested JS-string context, not a plain HTML-attribute context.
+`html.escape()` correctly protects against breaking out of the HTML
+*attribute* (can't inject a new attribute or close the tag), but the
+browser HTML-decodes the attribute's text *before* handing it to the JS
+parser for `onclick`. An escaped `'` (`&#x27;`) decodes back to a literal
+`'` at that point, which closes the JS string literal early from the JS
+parser's perspective - everything after it becomes executable JS, exactly
+as demonstrated above. HTML-escaping data is not sufficient to make it
+safe to interpolate into a JS-string-shaped HTML attribute; the two
+escaping rules are for different contexts and neither substitutes for
+the other.
+
+**Severity, stated honestly**: **not reachable today**. Every group name
+that reaches this code path is a hardcoded constant in
+`graph/seed_config.py`'s `SEED_GROUPS` ("APT29", "APT28", "Lazarus
+Group") - none contain a quote character, and nothing in this project
+currently lets an external source supply a group name. This is a real,
+demonstrated vulnerability *pattern*, not a live incident. It's logged
+and fixed anyway because it directly matches the brief this lens was
+created to cover: what happens if this exact code is still here the day
+group names (or any future button label built the same way) stop being
+fully trusted, hardcoded strings - e.g. a future ingestion source, or a
+group list that becomes user-configurable.
+
+**Fix**: removed the `onclick="applyGroupFilter('...')"` pattern
+entirely rather than trying to escape it more carefully - building JS
+source text from data is the actual defect, and no amount of escaping
+one more character class fully closes that class of hole in general.
+Buttons now carry the group name only as a plain `data-group` attribute
+(HTML-attribute-escaped, and never re-parsed as anything else), and
+`FILTER_SCRIPT_TEMPLATE` attaches a real `addEventListener` that reads
+`button.dataset.group` and calls `applyGroupFilter()` with it directly -
+no string interpolation into executable JS anywhere in the pipeline.
+Re-verified: the exploit reproduction above no longer applies (there is
+no `onclick` attribute at all), and the filter's real functionality was
+re-confirmed working via a scripted `.click()` on the real generated
+page (correct opacity changes, correct active-button state).
+
+### Web-lens: clean findings
+
+- **Node/edge labels are canvas-rendered, not DOM-inserted** - grepped
+  the bundled vis-network source for `fillText`/`strokeText` and
+  confirmed node labels (technique IDs, tactic names, group names) are
+  drawn directly to an HTML5 `<canvas>` via those calls. Canvas text
+  drawing never parses its input as markup - this rendering path is
+  immune to HTML/script injection by construction, regardless of
+  content, so no escaping concern applies to it at all. Confirmed
+  directly rather than assumed, per this lens's own methodology.
+- **`_inject_controls`'s remaining `html.escape()` calls are in the
+  correct context** - group names inserted into the `data-group`
+  attribute value and the button's visible text content are both real
+  HTML-parsed contexts, where `html.escape()` is the right and
+  sufficient defense (unlike the now-removed `onclick` case above).
+
+### Code-lens findings
+
+- **Hardcoded secrets/keys**: none found. Grepped the repo (excluding
+  `.venv/`, `data/raw/`, `.git/`) for API-key/secret/password/token-
+  shaped assignments - zero matches. Confirmed `.env` is listed in
+  `.gitignore` and is not a tracked file (`git ls-files` shows nothing
+  matching `.env`).
+- **Unsafe deserialization / dynamic execution**: none found. Grepped
+  the whole repo for `eval(`, `exec(`, `pickle.load`/`pickle.loads`,
+  `subprocess.`, `os.system`, `os.popen`, and unsafe `yaml.load(` - zero
+  matches anywhere in the project's own code.
+- **SQL/command injection**: not applicable - this project has no
+  database and makes no shell-command calls anywhere (confirmed by the
+  same grep above; also no `sqlite3`/`psycopg`/`pymysql`/`sqlalchemy`
+  imports). Documented as a reasoned "does not apply today," per this
+  lens's own discipline of keeping the check active rather than removing
+  it just because it currently finds nothing - it runs again next pass.
+- **Path traversal - CONFIRMED real gap, fixed same session**: found in
+  `.claude/skills/fetch-test-logs/fetch_test_logs.py`'s
+  `download_scenario()`, which joined a filename taken directly from the
+  GitHub API's file-listing response (`entry["name"]`) onto a local
+  `Path` with no validation: `dest / entry["name"]`. Confirmed for real
+  (not just reasoned about) that this shape is exploitable in principle:
+  `Path("some/dest") / "../../../etc/cron.d/evil"` produces a path
+  outside `dest`, and pathlib's `/` operator does not sanitize `..`
+  components. **Severity, stated honestly**: low in practice today - the
+  source is a fixed, trusted public repo
+  (github.com/arniki/atomic-evtx), not attacker-controlled - but it's a
+  real defensive gap in code that takes a filename from an external
+  server and writes it to the local filesystem, exactly the shape this
+  lens exists to catch before it matters. **Fixed** with a
+  `_safe_filename()` guard requiring the name survive
+  `name == Path(name).name` and reject `""`, `"."`, `".."` explicitly.
+  Worth noting for the record: the first version of that guard checked
+  only `name != Path(name).name` and was verified, for real, to still
+  let `".."` through unchanged - `Path("..").name` returns `'..'`, not
+  `''`, so the naive check didn't catch it. Caught by actually running
+  the function against a table of malicious inputs rather than assuming
+  the one-line check was sufficient; the explicit `in ("", ".", "..")`
+  check was added after that test failed, and the full table (traversal
+  paths, absolute paths, nested paths, `.`, `..`, empty string, and the
+  legitimate case) passes now.
+- **Dependency vulnerabilities**: ran `pip-audit` (v2.10.1) against
+  `requirements.txt`'s fully resolved dependency set (80 packages,
+  including transitive dependencies, not just the 8 top-level pins) -
+  **no known vulnerabilities found**. Recorded here as a specific,
+  sourced claim (tool, version, exact scope) rather than an unstated
+  assumption that dependencies are fine.
+
+### Fixes summary
+
+| Finding | Lens | Severity | Status |
+|---|---|---|---|
+| `<br>` renders literally / over-escaping for `innerText` | Web | Display bug, never an XSS vector | Fixed |
+| `onclick` JS-string built from data | Web | Real injection pattern, not currently reachable | Fixed |
+| Unsanitized filename -> path traversal | Code | Low (trusted fixed source today) | Fixed |
+| Hardcoded secrets | Code | N/A | Clean |
+| eval/exec/pickle/subprocess/SQL | Code | N/A | Clean, not applicable |
+| Dependency vulnerabilities (pip-audit) | Code | N/A | Clean |
+| Canvas-rendered labels | Web | N/A | Confirmed immune by construction |
+
+### Open items for the next pass
+
+- This pass covered `visualize/render_graph.py` as the only existing
+  web-lens surface. Re-run the web lens against any new browser-rendered
+  artifact this project adds (per the skill's trigger conditions), not
+  just against changes to this one file.
+- The code lens's SQL/command-injection check has found nothing to catch
+  every pass so far, by design (this project doesn't have that surface
+  yet) - re-run it anyway next pass rather than dropping it once
+  `ingestion/` or any future component starts shelling out or querying a
+  database for real.
+- `pip-audit` is not itself pinned in `requirements.txt` (it's a
+  dev-only scanning tool, not a runtime dependency) - re-installed fresh
+  each time this check runs, which also means its own version isn't
+  fixed across passes; note whatever version actually ran, as done
+  above, rather than assuming continuity.

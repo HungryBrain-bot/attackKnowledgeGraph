@@ -58,8 +58,13 @@ What this makes easier, harder, or explicitly out of scope now.
   need regenerating so they don't silently drift from the graph.
 - After changing `query/ask.py`'s entity extraction, `query/rag.py`'s
   prompt construction/system prompt, or `query/llm_provider.py` (new
-  provider added), see the ai-security-assessment skill - those are
-  exactly the surfaces its adversarial test cases exist to re-check.
+  provider added); after adding a dependency to `requirements.txt` or
+  touching code that builds a filesystem path from external input; or
+  after adding/changing any browser-rendered artifact (e.g.
+  `visualize/render_graph.py`) - see the red-team-assessment skill
+  (renamed and broadened 2026-08-15 from `ai-security-assessment` into
+  three lenses: LLM, code, and web/frontend). Those are exactly the
+  surfaces its checks exist to re-run.
 - On an explicit, real decision to build multi-agent continuous CTI
   ingestion (not routine build sessions), see the
   scale-to-continuous-ingestion skill and docs/future/multi-agent-

@@ -317,9 +317,9 @@ detection rule data (public CTI data doesn't include that).
 - Surfacing cross-group comparisons (docs/decisions/006) in the query
   layer itself - `query/retrieval.py`/`format_context()` don't yet
   render the new `comparisons` edge attribute into the LLM's facts
-  block; needs an `ai-security-assessment` pass before it ships, since
-  it means a group-filtered answer can legitimately mention a second
-  group.
+  block; needs a `red-team-assessment` LLM-lens pass before it ships,
+  since it means a group-filtered answer can legitimately mention a
+  second group.
 - `KimiProvider` wired up for real once an API key exists - same
   five-minute path as `OpenAIProvider` (see CLAUDE.md's "Adding an LLM
   Provider").

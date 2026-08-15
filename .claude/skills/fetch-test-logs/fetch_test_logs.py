@@ -118,6 +118,21 @@ def print_summary(matched: dict[str, list[dict]]) -> None:
         )
 
 
+def _safe_filename(name: str) -> str:
+    """Rejects a GitHub API-reported filename that isn't a plain leaf name.
+
+    `download_scenario()` below joins this straight onto a local Path with
+    `dest / name` - a `name` containing a path separator or `..` component
+    (e.g. `../../../etc/cron.d/evil`) would write outside `dest` instead of
+    into it. The upstream repo (github.com/arniki/atomic-evtx) is a fixed,
+    trusted source today, so this isn't reachable in practice, but the
+    check costs nothing and this function is the one place an external
+    server's response becomes a local filesystem path in this project."""
+    if name != Path(name).name or name in ("", ".", ".."):
+        raise ValueError(f"unsafe filename from GitHub API response: {name!r}")
+    return name
+
+
 def _download_file(url: str, out_path: Path) -> None:
     with urllib.request.urlopen(url) as resp:
         out_path.write_bytes(resp.read())
@@ -144,13 +159,13 @@ def download_scenario(row: dict, tier_dir: str, dest: Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
     for entry in entries:
         if entry["type"] == "file":
-            _download_file(entry["download_url"], dest / entry["name"])
+            _download_file(entry["download_url"], dest / _safe_filename(entry["name"]))
         elif entry["type"] == "dir" and entry["name"] == "json":
             json_dest = dest / "json"
             json_dest.mkdir(exist_ok=True)
             for jentry in _github_request(entry["url"]):
                 if jentry["type"] == "file":
-                    _download_file(jentry["download_url"], json_dest / jentry["name"])
+                    _download_file(jentry["download_url"], json_dest / _safe_filename(jentry["name"]))
 
 
 def main() -> None:

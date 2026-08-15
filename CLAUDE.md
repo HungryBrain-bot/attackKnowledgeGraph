@@ -97,15 +97,17 @@ flowchart LR
   `data/test_logs/` hasn't been fetched yet - see `pytest` under Current
   status. `test_adversarial_queries.py` calls the real query pipeline
   end-to-end (no mocking) with adversarial inputs - see
-  `.claude/skills/ai-security-assessment/`.
+  `.claude/skills/red-team-assessment/`.
 - `docs/attack-patterns/` - one case file per technique (problem,
   mechanics, how the graph models it, sources) - see
   `.claude/skills/attack-pattern-doc/SKILL.md`
 - `docs/decisions/` - ADRs for real engineering decisions - see
   `.claude/skills/build-and-document/SKILL.md`
-- `docs/security-assessment.md` - append-only, dated adversarial-testing
-  findings log for the query layer's prompt-injection surface - see
-  `.claude/skills/ai-security-assessment/SKILL.md`
+- `docs/security-assessment.md` - append-only, dated findings log across
+  all three of the `red-team-assessment` skill's lenses (LLM, code,
+  web/frontend - renamed and broadened 2026-08-15 from
+  `ai-security-assessment`, LLM-only) - see
+  `.claude/skills/red-team-assessment/SKILL.md`
 - `NOTES-private.md` - gitignored, personal/product-vision notes only.
   Never referenced by anything that gets committed.
 
@@ -272,8 +274,8 @@ Phase 1 structural graph and Phase 2 semantic edges.
   its confidence raised 0.65→0.75. `query/retrieval.py` and
   `format_context()` do not yet surface the `comparisons` attribute in
   query answers - that's future query-layer work (see README's Roadmap)
-  and would need an `ai-security-assessment` pass first, since it means
-  a group-filtered answer can legitimately mention a second group.
+  and would need a `red-team-assessment` LLM-lens pass first, since it
+  means a group-filtered answer can legitimately mention a second group.
 - `docs/attack-patterns/` - 13 case files, one per seed technique
   (T1566.001, T1204.002, T1059.001, T1078, T1083, T1021.001, T1560.001,
   T1074.002, T1071.001, T1003.002, T1057, T1105, T1547.001).
@@ -325,11 +327,16 @@ Phase 1 structural graph and Phase 2 semantic edges.
   `answer()` runs a deterministic `_check_no_ungrounded_techniques()`
   guard on every response before returning it - see
   docs/decisions/005-prompt-injection-fact-separation.md.
-- `.claude/skills/ai-security-assessment/` +
+- `.claude/skills/red-team-assessment/` (renamed and broadened
+  2026-08-15 from `ai-security-assessment` into three lenses - LLM, code,
+  web/frontend - see that file and docs/security-assessment.md's
+  2026-08-15 entry for the broadening itself and its first code/web
+  findings, summarized further down in this same bullet) +
   `tests/test_adversarial_queries.py` + `docs/security-assessment.md` -
   adversarial testing for the query layer's prompt-injection surface
-  (OWASP LLM01/LLM09, primarily), run for real against the live pipeline,
-  no mocking. **First pass complete and a real finding fixed**: a
+  (OWASP LLM01/LLM09, primarily - this is the LLM lens specifically), run
+  for real against the live pipeline, no mocking. **First pass complete
+  and a real finding fixed**: a
   fact-injection attempt got a fabricated technique/edge/citation
   (`T1553.002`, which exists nowhere in this project's graph) cited back
   in the answer as if it were real retrieved data - see
@@ -363,7 +370,27 @@ Phase 1 structural graph and Phase 2 semantic edges.
   close together - unstructured prose asserting the same fabrication is
   caught by neither guard. `ClaudeProvider` still hasn't been run
   through this assessment (no Anthropic key on this machine, same gap
-  as its general live-testing status above).
+  as its general live-testing status above). **Skill broadened
+  2026-08-15, code and web/frontend lenses run for real for the first
+  time same day**: code lens found and fixed a real (low-severity, not
+  currently reachable) path-traversal gap in `.claude/skills/fetch-test-
+  logs/fetch_test_logs.py` - a GitHub API-reported filename was joined
+  onto a local path with no validation - and found no secrets, no unsafe
+  eval/exec/pickle/subprocess/SQL anywhere in the repo, and zero known
+  vulnerabilities via a real `pip-audit` run (v2.10.1, 80 resolved
+  dependencies). Web lens found and fixed two real issues in
+  `visualize/render_graph.py`'s generated HTML: the tooltip `<br>` bug
+  (see that bullet above - re-diagnosed here as a web-security finding,
+  not just a display bug, since getting the escaping direction backwards
+  is exactly this lens's concern), and a confirmed - though not
+  currently reachable - script-injection pattern in the group-filter
+  buttons' `onclick="applyGroupFilter('...')"` markup, where
+  `html.escape()` was insufficient because an inline event-handler
+  attribute is a nested JS-string context; fixed by removing inline
+  `onclick` entirely in favor of `data-group` + a real
+  `addEventListener`. Full writeups, including the working exploit proof
+  for the `onclick` finding, in docs/security-assessment.md's 2026-08-15
+  entry.
 - `docs/future/multi-agent-ingestion.md` + `.claude/skills/scale-to-
   continuous-ingestion/` - **design-only, unbuilt, dated 2026-08-13**.
   Sketches a multi-agent orchestration approach for replacing
@@ -503,8 +530,9 @@ test (query layer vs. real EVTX telemetry) - extending coverage to
 `graph/` is unbuilt. CI now exists (`.github/workflows/test.yml`, see
 below) but only runs the deterministic/free tests, per design - no
 Anthropic/OpenAI secrets are configured for GitHub Actions at this
-stage. The `ai-security-assessment` skill's two passes so far have both
-covered `OpenAIProvider` only; the second pass (2026-08-14) closed out
+stage. The `red-team-assessment` skill's (formerly `ai-security-
+assessment`) LLM lens has run two passes so far, both covering
+`OpenAIProvider` only; the second pass (2026-08-14) closed out
 the first pass's "fabricated attribute" open item (docs/security-
 assessment.md's Finding 4) and, on same-day explicit request, fixed the
 underlying gap with a second deterministic guard,
@@ -522,7 +550,14 @@ status entry above) - the coverage-gap layer sketched in
 docs/future/detection-coverage.md is the new unbuilt follow-on, gated on
 real detection-rule data this machine doesn't have, same as the
 multi-agent-ingestion design doc is gated on a real decision to pursue
-it.
+it. The `red-team-assessment` skill's code and web/frontend lenses have
+each run exactly one real pass so far (2026-08-15, see the Current
+status entry above) - re-running both against whatever changes next is
+unbuilt-by-default (it's a trigger-condition skill, not a standing CI
+check), and the code lens's SQL/command-injection and web lens's
+XSS/`innerHTML`-context checks have found nothing to catch yet simply
+because this project doesn't have that surface yet, not because they're
+exhaustively verified safe forever.
 
 ## Do NOT
 

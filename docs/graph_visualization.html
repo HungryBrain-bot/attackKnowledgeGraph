@@ -269,10 +269,10 @@ function highlightFilter(filter) {
   <div class="controls-row">
     <span class="controls-label">Filter by group:</span>
     <button type="button" class="group-filter-btn active" data-group=""
-      style="--btn-color: #3a3a37;" onclick="applyGroupFilter('')">All groups</button>
-    <button type="button" class="group-filter-btn" data-group="APT28" style="--btn-color: #C44E52;" onclick="applyGroupFilter('APT28')">APT28</button>
-    <button type="button" class="group-filter-btn" data-group="APT29" style="--btn-color: #4C72B0;" onclick="applyGroupFilter('APT29')">APT29</button>
-    <button type="button" class="group-filter-btn" data-group="Lazarus Group" style="--btn-color: #55A868;" onclick="applyGroupFilter('Lazarus Group')">Lazarus Group</button>
+      style="--btn-color: #3a3a37;">All groups</button>
+    <button type="button" class="group-filter-btn" data-group="APT28" style="--btn-color: #C44E52;">APT28</button>
+    <button type="button" class="group-filter-btn" data-group="APT29" style="--btn-color: #4C72B0;">APT29</button>
+    <button type="button" class="group-filter-btn" data-group="Lazarus Group" style="--btn-color: #55A868;">Lazarus Group</button>
   </div>
   <div class="legend-row">
     <span><strong>Nodes:</strong></span>
@@ -444,6 +444,10 @@ function highlightFilter(filter) {
       b.classList.toggle('active', b.dataset.group === group);
     });
   }
+
+  document.querySelectorAll('.group-filter-btn').forEach(function (b) {
+    b.addEventListener('click', function () { applyGroupFilter(b.dataset.group); });
+  });
 
   network.once('stabilizationIterationsDone', function () {
     network.setOptions({physics: false});
