@@ -625,9 +625,26 @@ Phase 1 structural graph and Phase 2 semantic edges.
   byte-identical-across-tiers EVTX finding) rather than generic advice.
   Cross-linked from the root README's new "How this project was built"
   section (near the top, deliberately, since this is meant to be
-  discoverable rather than buried). Kept in sync going forward by a new
-  gating skill, `.claude/skills/playbook-sync/` (see its own entry in
-  this file once added).
+  discoverable rather than buried). Kept in sync going forward by
+  `.claude/skills/playbook-sync/` - see the next bullet.
+- `.claude/skills/playbook-sync/` - **built this session (2026-08-15)**,
+  the ongoing-discipline counterpart to `skills-playbook/`'s one-time
+  generalization pass, above (different provenance, committed
+  separately). Triggers whenever a new skill is created under
+  `.claude/skills/`, or an existing skill's `SKILL.md` changes
+  meaningfully (its trigger conditions or methodology - not a typo fix).
+  Generalizes the skill the same way the original six were generalized
+  (strip project-specific content, add `[PLACEHOLDER: ...]` markers,
+  preserve the underlying reasoning/attributed example rather than just
+  the mechanics), saves/updates the corresponding file under
+  `skills-playbook/templates/`, and keeps `skills-playbook/README.md`'s
+  template table from drifting from what's actually in that folder.
+  Explicit that not every skill is worth templating: a skill too
+  domain-specific to generalize meaningfully should be noted as such,
+  not force-templated just to keep the count even. Cross-referenced from
+  `.claude/skills/build-and-document/SKILL.md`, same pattern as its
+  existing links to `red-team-assessment` and
+  `scale-to-continuous-ingestion`.
 - Environment: `mitreattack-python` isn't available as a system package
   on this machine (Kali marks Python as externally managed) - use the
   project's `.venv` (gitignored, `python3 -m venv .venv && .venv/bin/pip

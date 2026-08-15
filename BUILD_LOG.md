@@ -1518,3 +1518,41 @@
 - No code changes - documentation/template-only addition, confirmed by
   scope (only `skills-playbook/`, `README.md`, `CLAUDE.md`, and this
   file changed in this commit).
+
+## 2026-08-15 - playbook-sync skill: keeps skills-playbook/ from going stale
+
+- Added `.claude/skills/playbook-sync/SKILL.md` - the ongoing-discipline
+  counterpart to the skills-playbook generalization pass above
+  (different provenance: one was a one-time pass over six existing
+  skills, this is a standing trigger for every future one, so it's a
+  separate commit).
+- Triggers on: a new skill created under `.claude/skills/`, or an
+  existing skill's `SKILL.md` changing *meaningfully* (its trigger
+  conditions or methodology) - explicitly not on typo fixes or wording
+  polish, and explicitly not on routine use of an unchanged skill or on
+  changes to files a skill merely produces (a new ADR, a new case file).
+- What it does: generalizes the new/changed skill the same way the
+  original six were generalized for `skills-playbook/templates/` -
+  strip project-specific content, add `[PLACEHOLDER: ...]` markers,
+  and explicitly preserve the underlying *reasoning* (and, where one
+  exists, the real attributed example the original skill's methodology
+  is tied to) rather than just the mechanical steps - then save/update
+  the corresponding template file and keep
+  `skills-playbook/README.md`'s template table from drifting from
+  what's actually in `templates/`.
+- What it explicitly does NOT do: force-generalize a skill that's
+  genuinely too domain-specific to be reusable elsewhere - that judgment
+  call gets noted explicitly (which skill, why it wasn't templated)
+  rather than silently skipped or templated anyway just to keep the
+  template count matching the skill count.
+- Added a one-line cross-reference from
+  `.claude/skills/build-and-document/SKILL.md` to this new skill, same
+  pattern as its existing links to `red-team-assessment` and
+  `scale-to-continuous-ingestion`.
+- Updated CLAUDE.md: new `.claude/skills/playbook-sync/` bullet
+  alongside the `skills-playbook/` bullet added in the previous commit,
+  and fixed that bullet's forward reference now that this skill exists.
+- No code changes - documentation/skill-only addition, confirmed by
+  scope (only `.claude/skills/playbook-sync/`,
+  `.claude/skills/build-and-document/SKILL.md`, CLAUDE.md, and this file
+  changed in this commit).

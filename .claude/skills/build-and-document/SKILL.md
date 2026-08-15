@@ -79,6 +79,11 @@ What this makes easier, harder, or explicitly out of scope now.
   ingestion doc above, except for one section that documents an
   already-true, already-verified property of the current code (the
   API's statelessness) rather than a future proposal.
+- Whenever a new skill is created under `.claude/skills/`, or an
+  existing skill's SKILL.md changes meaningfully (its trigger
+  conditions or methodology, not a typo fix), see the playbook-sync
+  skill - keeps `skills-playbook/`'s generalized templates from
+  drifting away from what this project's own skills actually do.
 
 ## Commit conventions
 
