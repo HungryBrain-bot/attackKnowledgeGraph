@@ -68,6 +68,12 @@ traversal, not the LLM (see docs/decisions/003-query-layer-scope.md) -
 the retrieved-facts block is printed alongside the answer specifically so
 a reviewer never has to trust the citations blind.
 
+If the configured provider (`LLM_PROVIDER`, default `claude`) has no
+credentials set - e.g. a fresh clone with no `.env` yet - the CLI prints
+the retrieved facts block above and stops there with a one-line note,
+instead of the answer section and instead of an error: the graph half of
+this tool works with zero LLM setup.
+
 ## Why
 
 MITRE ATT&CK catalogs techniques as a taxonomy. It doesn't model sequence,
@@ -224,21 +230,41 @@ query/                  Graph RAG query layer
   retrieval.py            traverses it for one technique's structural usage
                          + directly-connected semantic edges (pure Python, no LLM)
   llm_provider.py         vendor-agnostic LLMProvider interface (Claude/OpenAI
-                         real, Kimi stubbed)
+                         real, Kimi stubbed) + has_credentials() so the CLI can
+                         degrade to facts-only instead of erroring when the
+                         configured provider has no key set
   rag.py                  sends retrieved facts + question to the configured
                          provider, constrained to formatting only
   ask.py                  CLI entry point (python -m query.ask "...")
 
-tests/                  test_query_layer_against_evtx.py - cross-checks real
-                         atomic-evtx telemetry against the graph (pure retrieval,
-                         no LLM call; skips if data/test_logs/ isn't fetched)
+visualize/              render_graph.py - interactive pyvis visualization of
+                         the combined graph -> docs/graph_visualization.html
+                         (node/edge styling, per-group filter, sourced
+                         tooltips); a separate consumer of query/graph_loader.py,
+                         not part of the query/RAG path
+
+tests/                  test_query_layer_against_evtx.py (real atomic-evtx
+                         telemetry vs. the graph, no LLM call - skips without
+                         fetched test logs) + test_adversarial_queries.py
+                         (live adversarial LLM queries - skips without
+                         credentials), plus two deterministic unit test
+                         files that never skip: test_rag_guard.py (the
+                         query layer's grounding guards) and
+                         test_fetch_test_logs_safety.py (path-traversal
+                         guard)
 
 docs/attack-patterns/   one case file per seed technique (problem, mechanics,
                          how the graph models it, sources)
 docs/decisions/         ADRs for real engineering decisions
+docs/security-assessment.md   dated findings log for the red-team-assessment
+                         skill's three lenses (LLM, code, web/frontend)
+docs/future/            design-only, unbuilt: multi-agent CTI ingestion and
+                         DETECTED_BY detection-coverage edges - see the
+                         "Future Direction" section below
 
 .claude/skills/         build-and-document, attack-pattern-doc, fetch-test-logs,
-                         generate-diagrams
+                         generate-diagrams, red-team-assessment,
+                         scale-to-continuous-ingestion
 
 NOTES-private.md        gitignored, personal/product-vision notes only
 ```
@@ -267,11 +293,16 @@ mkdir -p data/raw && curl -o data/raw/enterprise-attack.json \
 # fixed number is promised here - see tests/test_query_layer_against_evtx.py
 .venv/bin/python -m pytest tests/
 
-# query layer needs an LLM provider key - put one in .env (gitignored):
+# query layer needs an LLM provider key for a formatted answer - put one
+# in .env (gitignored). Without one, the CLI below still works and prints
+# the retrieved facts, just without the LLM-formatted answer on top:
 echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
 # or: echo 'OPENAI_API_KEY=sk-...' > .env && echo 'LLM_PROVIDER=openai' >> .env
 
 .venv/bin/python -m query.ask "what happens after T1059.001 for APT29?"
+
+# regenerate the interactive graph visualization (docs/graph_visualization.html)
+.venv/bin/python -m visualize.render_graph
 ```
 
 ## Future Direction
@@ -308,7 +339,11 @@ detection rule data (public CTI data doesn't include that).
 - **Phase 3 - Graph RAG query layer**: deterministic single-technique/
   one-hop retrieval (docs/decisions/003), vendor-agnostic LLM provider
   abstraction (docs/decisions/004) with `ClaudeProvider` and
-  `OpenAIProvider` both real and live-tested end to end through the CLI.
+  `OpenAIProvider` both real; `OpenAIProvider` is live-tested end to end
+  through the CLI, `ClaudeProvider` isn't yet (no Anthropic key on this
+  dev machine - explicitly deferred, not skipped, see CLAUDE.md). Either
+  way, the CLI degrades cleanly to facts-only output instead of erroring
+  when the configured provider has no credentials - see "See it run."
 - First automated test (`tests/test_query_layer_against_evtx.py`),
   cross-checking real Atomic Red Team-simulated telemetry against the
   graph.
