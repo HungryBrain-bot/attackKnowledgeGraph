@@ -952,6 +952,76 @@
   shape is caught by neither guard. Logged as an open item for the next
   `ai-security-assessment` pass, not silently claimed as closed.
 
+## 2026-08-15 - Interactive graph visualization
+
+- Built `visualize/render_graph.py`: reads `data/graph_with_semantics.json`
+  via the same `query/graph_loader.py` the query layer uses, builds a
+  pyvis `Network`, and writes `docs/graph_visualization.html`. Nodes are
+  shaped/colored by `node_type` (Technique = dot, Tactic = box, Group =
+  star colored via `graph/generate_diagrams.py`'s existing `GROUP_COLORS`
+  - imported directly rather than duplicated, so a group means the same
+  color in the Mermaid diagrams and this visualization) and sized by
+  degree. Structural edges (USES_TECHNIQUE, HAS_TACTIC) render as thin
+  gray lines; semantic edges (TEMPORALLY_PRECEDES, CAUSALLY_ENABLES) are
+  colored per `group_context`, dashed vs. solid by edge type (matching
+  `generate_diagrams.py`'s Mermaid convention), with `confidence` driving
+  both line width and opacity. Every semantic edge's hover tooltip
+  carries its real confidence, sample_size, sources, and evidence text;
+  every USES_TECHNIQUE edge's tooltip carries its sources - the "every
+  claim is sourced" property now visible in the graph itself, not just
+  in prose.
+- A client-side group filter (one button per `SEED_GROUPS` group, plain
+  JS injected into the pyvis-generated HTML, no framework) dims every
+  node/edge not directly connected to the selected group rather than
+  removing them, per the explicit request that cross-group sharing stay
+  visible. Implemented by giving every node/edge a `group_context`/
+  `node_type` field via pyvis's pass-through kwargs (preserved verbatim
+  into the page's `vis.DataSet`), then a JS `applyGroupFilter()` that
+  walks the live `allNodes`/`allEdges` objects and calls `nodes.update()`
+  / `edges.update()` with a dimmed or restored `opacity`.
+- Real bug caught before it shipped: pyvis doesn't assign edges a stable
+  `id` unless one is passed explicitly - without it, vis.js auto-assigns
+  one at DataSet-construction time, which is fine for a single render but
+  meant `edges.update()` from the filter script couldn't reliably target
+  a specific edge, and would have broken byte-identical regeneration if
+  the auto-assigned ids ever varied. Fixed by setting an explicit,
+  deterministic `id` on every edge (`{edge_type}|{source}|{target}|{key}`,
+  built from data already in the source JSON, not generated).
+- Multiple semantic edges between the same technique pair (e.g. the
+  APT29 and Lazarus Group `TEMPORALLY_PRECEDES` edges both on
+  T1566.001->T1204.002) are given `smooth.type: curvedCW` with per-edge
+  `roundness` so they render as separate visible arcs instead of
+  overlapping into one indistinguishable line.
+- **Idempotency verified for real**: ran `python -m visualize.render_graph`
+  twice in a row with unchanged input data, `diff`'d the two output files
+  - zero differences. Holds because node/edge iteration is sorted by a
+  stable key (mirroring `generate_diagrams.py`'s existing discipline) and
+  no timestamps or randomly-generated ids are ever emitted.
+- **Rendered for real, not just eyeballed**: no `puppeteer` npm package
+  is installed on this machine, but a cached Chrome-for-Testing binary
+  was already present (from the `generate-diagrams` skill's earlier
+  mermaid-cli validation work) at
+  `~/.cache/puppeteer/chrome/linux-131.0.6778.204/`. Drove it directly
+  via `chrome --headless=new --dump-dom` (no puppeteer needed for this):
+  confirmed no console errors, confirmed the `#mynetwork` canvas and
+  vis-network navigation controls actually render (proof the
+  `vis.Network()` constructor didn't throw on the generated
+  nodes/edges JSON), and injected a temporary test script confirming a
+  scripted `applyGroupFilter('APT29')` call actually changes node/edge
+  `opacity` as designed (APT29-relevant node opacity 1.0, APT28's group
+  node dimmed to 0.08, a relevant structural edge restored to its base
+  0.5) - not assumed correct from reading the JS.
+- Added a link near the top of README (before "See it run") to the
+  generated HTML, with the caveat that GitHub's file viewer doesn't
+  execute the JS - it has to be opened locally. Extended the hand-
+  authored architecture diagram in both README.md and CLAUDE.md with a
+  `query/graph_loader.py -> visualize/render_graph.py ->
+  docs/graph_visualization.html` branch, since this is a real new
+  consumer of the combined graph, not part of the query/RAG path.
+- Updated CLAUDE.md: new `visualize/` bullet in the Architecture section,
+  a Current status entry recording what was verified and how, and a
+  note in the "Next" paragraph.
+
 ## 2026-08-15 - Detection coverage: design addendum (not built)
 
 - Explicit request for a design-only addendum, not an implementation -

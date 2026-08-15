@@ -33,6 +33,8 @@ flowchart LR
     CP --> ASK["query/ask.py (CLI)"]
     OP --> ASK
     KP -.-> ASK
+    GL --> VZ["visualize/render_graph.py"]
+    VZ --> HTMLOUT["docs/graph_visualization.html"]
 
     classDef stub stroke-dasharray: 5 5,fill:#eee,color:#888;
     class KP stub;
@@ -67,6 +69,25 @@ flowchart LR
   scope.md for why retrieval is scoped to one technique/one hop and
   entity extraction is plain regex, and docs/decisions/004-llm-provider-
   abstraction.md for the provider interface.
+- `visualize/` - `render_graph.py` builds an interactive pyvis
+  visualization from the same combined graph `query/graph_loader.py`
+  loads (a separate consumer of it, not part of the query/RAG path) -
+  nodes colored/shaped by type and sized by degree, a per-group filter
+  that dims (not removes) everything not directly connected to the
+  selected group, structural vs. semantic edge styling (semantic edge
+  confidence drives line width/opacity), and hover tooltips carrying
+  every semantic edge's real citation/confidence/sample_size. Regenerate
+  with `python -m visualize.render_graph` whenever
+  `data/graph_with_semantics.json` changes; writes
+  `docs/graph_visualization.html`, a single self-contained file (vis-
+  network inlined, no external JS fetch to draw the graph) linked near
+  the top of README. Same idempotency guarantee as the `generate-
+  diagrams` skill's Mermaid output (sorted traversal, no timestamps/
+  random IDs, byte-identical on a rerun with unchanged data) - verified
+  for real by running it twice and diffing - but this is a separate,
+  unrelated generator: `graph/generate_diagrams.py` only touches Mermaid
+  diagrams inside `GENERATED` markers in existing `.md` files, never
+  this HTML file, and this script is never triggered by that skill.
 - `tests/` - `test_query_layer_against_evtx.py` is the project's first
   automated test: cross-checks real fetched atomic-evtx samples (see
   `.claude/skills/fetch-test-logs/`) against the graph, confirming a
@@ -435,6 +456,27 @@ Phase 1 structural graph and Phase 2 semantic edges.
   placement bug in the generator, and an exit-code-masking bug in the
   validation script itself) - see BUILD_LOG.md's 2026-08-13 "Mermaid
   diagrams" entry for both.
+- `visualize/render_graph.py` - interactive pyvis visualization,
+  **built and verified this session (2026-08-15)**, a separate,
+  unrelated generator from the Mermaid pipeline above (see the
+  `visualize/` architecture bullet for the exact boundary). Writes
+  `docs/graph_visualization.html`, linked near the top of README.
+  **Idempotency verified for real** (ran twice, `diff` showed zero
+  differences, not just asserted) and **rendered for real in headless
+  Chrome** (the same cached Chrome-for-Testing binary the
+  `generate-diagrams` skill's mermaid-cli validation used, driven
+  directly via `--headless=new --dump-dom` since no `puppeteer` npm
+  package is installed on this machine - no console errors, the
+  `#mynetwork` canvas + navigation controls render, and a scripted
+  `applyGroupFilter('APT29')` call was confirmed to actually change node/
+  edge opacity as designed, not just assumed to work from reading the
+  JS). See docs/future/detection-coverage.md for a design-only,
+  explicitly-not-built follow-on: layering a coverage-gap view (which
+  techniques lack `FULL` detection coverage) onto this same
+  visualization once real detection-rule data exists to populate it
+  honestly - linked from both `docs/future/multi-agent-ingestion.md`
+  and README's "Future Direction" section, same "no synthetic data"
+  discipline as everywhere else in this project.
 - Environment: `mitreattack-python` isn't available as a system package
   on this machine (Kali marks Python as externally managed) - use the
   project's `.venv` (gitignored, `python3 -m venv .venv && .venv/bin/pip
@@ -475,6 +517,12 @@ Finding 3's unfixed system-prompt-paraphrase leak, and the new guard's
 own honestly-documented residual limit (only catches edge-shaped
 fabrications with a technique ID + edge-type keyword + technique ID
 close together, not unstructured prose asserting the same thing).
+`visualize/render_graph.py` is now built (2026-08-15, see the Current
+status entry above) - the coverage-gap layer sketched in
+docs/future/detection-coverage.md is the new unbuilt follow-on, gated on
+real detection-rule data this machine doesn't have, same as the
+multi-agent-ingestion design doc is gated on a real decision to pursue
+it.
 
 ## Do NOT
 

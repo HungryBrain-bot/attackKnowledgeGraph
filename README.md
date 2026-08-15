@@ -10,6 +10,15 @@ not just *which* techniques a threat group uses, but the relationships
 between them - what tends to precede what, what enables what, and where
 detection coverage gaps exist.
 
+**[Open the interactive graph visualization](docs/graph_visualization.html)** -
+download/clone and open locally in a browser (GitHub's file viewer doesn't
+execute the JS). Nodes colored/shaped by type and sized by degree, a
+per-group filter that highlights one group's nodes/edges while dimming (not
+removing) the rest, and hover tooltips carrying every semantic edge's real
+citation, confidence, and sample_size - regenerate with
+`python -m visualize.render_graph` whenever `data/graph_with_semantics.json`
+changes.
+
 ## See it run
 
 Real output from `python -m query.ask`, captured from an actual run
@@ -104,13 +113,18 @@ flowchart LR
     CP --> ASK["query/ask.py<br/>(CLI)"]
     OP --> ASK
     KP -.-> ASK
+    GL --> VZ["visualize/render_graph.py"]
+    VZ --> HTMLOUT["docs/graph_visualization.html"]
 
     classDef stub stroke-dasharray: 5 5,fill:#eee,color:#888;
     class KP stub;
 ```
 
 *Dashed `KimiProvider` = stub, not yet implemented (see
-docs/decisions/004-llm-provider-abstraction.md).*
+docs/decisions/004-llm-provider-abstraction.md). `visualize/render_graph.py`
+reads the same combined graph the query layer does, via
+`query/graph_loader.py`, and is a separate consumer of it - not part of the
+query/RAG path.*
 
 ## Scope (honest version)
 
