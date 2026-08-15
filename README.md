@@ -119,6 +119,10 @@ flowchart LR
     CP --> ASK["query/ask.py<br/>(CLI)"]
     OP --> ASK
     KP -.-> ASK
+    CP --> API["api/main.py<br/>(FastAPI)"]
+    OP --> API
+    KP -.-> API
+    API --> DOCKER["Dockerfile /<br/>docker-compose.yml"]
     GL --> VZ["visualize/render_graph.py"]
     VZ --> HTMLOUT["docs/graph_visualization.html"]
 
@@ -130,7 +134,9 @@ flowchart LR
 docs/decisions/004-llm-provider-abstraction.md). `visualize/render_graph.py`
 reads the same combined graph the query layer does, via
 `query/graph_loader.py`, and is a separate consumer of it - not part of the
-query/RAG path.*
+query/RAG path. `api/main.py` is a second entry point on top of the same
+query layer `query/ask.py` (CLI) calls - see
+docs/decisions/007-api-and-containerization.md.*
 
 ## Scope (honest version)
 
@@ -243,6 +249,16 @@ visualize/              render_graph.py - interactive pyvis visualization of
                          tooltips); a separate consumer of query/graph_loader.py,
                          not part of the query/RAG path
 
+api/                    main.py - FastAPI wrapper around the same query layer
+                         the CLI calls: POST /query (facts + LLM-formatted
+                         answer, or facts-only with no credentials), GET
+                         /health, GET /techniques
+
+Dockerfile              containerizes api/ - single-stage, python:3.13-slim;
+docker-compose.yml      data/graph_with_semantics.json is committed to the
+.dockerignore           repo so the image never fetches the raw STIX bundle
+                         or bakes in .env - see docs/decisions/007
+
 tests/                  test_query_layer_against_evtx.py (real atomic-evtx
                          telemetry vs. the graph, no LLM call - skips without
                          fetched test logs) + test_adversarial_queries.py
@@ -305,6 +321,36 @@ echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
 .venv/bin/python -m visualize.render_graph
 ```
 
+### Docker alternative
+
+`data/graph_with_semantics.json` is already committed to this repo, so
+the container needs neither the 48MB raw STIX bundle nor a Python venv -
+see docs/decisions/007-api-and-containerization.md for why. This is the
+fastest path to a running query API from a fresh clone:
+
+```bash
+git clone <this-repo>
+cd attck-graph
+
+# optional - without a key, /query still works and returns facts-only
+# (query/llm_provider.py's has_credentials() degradation, same as the CLI)
+echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
+# or: echo 'OPENAI_API_KEY=sk-...' > .env && echo 'LLM_PROVIDER=openai' >> .env
+
+docker compose up --build
+
+# in another terminal:
+curl http://localhost:8000/health
+curl http://localhost:8000/techniques
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "what happens after T1059.001 for APT29?"}'
+```
+
+Equivalent without compose: `docker build -t attck-graph-api . && docker
+run -p 8000:8000 --env-file .env attck-graph-api`. Interactive API docs
+are auto-generated at `http://localhost:8000/docs`.
+
 ## Future Direction
 
 Speculative, not committed - unlike the Roadmap below, nothing here is
@@ -327,7 +373,7 @@ detection rule data (public CTI data doesn't include that).
 
 ## Roadmap
 
-### Current (Phases 1-3, built)
+### Current (Phases 1-4, built)
 - **Phase 1 - Structural graph**: real MITRE ATT&CK STIX data via
   `mitreattack-python`, 26 nodes / 54 edges.
 - **Phase 2 - Semantic edges**: 17 hand-authored, cited
@@ -347,6 +393,15 @@ detection rule data (public CTI data doesn't include that).
 - First automated test (`tests/test_query_layer_against_evtx.py`),
   cross-checking real Atomic Red Team-simulated telemetry against the
   graph.
+- **Phase 4 - REST API and containerization**: `api/main.py` (FastAPI)
+  wraps the same query layer behind `POST /query`, `GET /health`,
+  `GET /techniques` (see docs/decisions/007-api-and-containerization.md),
+  assessed with the `red-team-assessment` skill's LLM and code lenses
+  before shipping (docs/security-assessment.md). `Dockerfile` +
+  `docker-compose.yml` package it - single-stage, no raw STIX bundle or
+  `.env` baked in, `docker build`/`docker run`/`docker compose up` all
+  verified for real against a running container (see "Docker
+  alternative" above).
 
 ### Planned
 - Surfacing cross-group comparisons (docs/decisions/006) in the query

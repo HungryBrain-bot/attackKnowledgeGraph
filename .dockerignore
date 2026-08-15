@@ -1,0 +1,15 @@
+.venv/
+venv/
+.git/
+.github/
+data/raw/
+data/test_logs/
+.env
+NOTES-private.md
+
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+docs/graph_visualization.html

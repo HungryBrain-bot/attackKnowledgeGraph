@@ -1337,3 +1337,81 @@
 - `LLM_PROVIDER=openai python -m pytest tests/ -v`: 32 passed (was 30 -
   the parametrized test added 2 net new cases), including the 3 live
   parametrized cases against the real API.
+
+## 2026-08-15 - REST API + containerization (Phase 4)
+
+- Built `api/main.py`, a FastAPI wrapper around the existing query
+  layer - `POST /query` calls `query/retrieval.py`'s
+  `get_technique_context()`/`format_context()`,
+  `query/llm_provider.py`'s `has_credentials()`/`get_provider()`, and
+  `query/rag.py`'s `answer()` directly, plus `GET /health` (real
+  node/edge counts, not just process-up) and `GET /techniques` (the 13
+  seed IDs). Entity extraction is imported from `query/ask.py`
+  (`extract_technique_id`/`extract_group`) rather than duplicated, so
+  the CLI and API share the exact same "what counts as a valid
+  question" logic. `MaxBodySizeMiddleware` (Content-Length > 10,000
+  bytes -> 413) and a catch-all `@app.exception_handler(Exception)` (any
+  unhandled exception -> generic 500, no traceback) were added since
+  this is a new HTTP-specific surface the CLI never had.
+- `requirements.txt` gained `fastapi` and `uvicorn[standard]`.
+- Verified directly with `fastapi.testclient.TestClient` (no server
+  process, no Docker) before going further: `/health`, `/techniques`,
+  `/query` for both the facts-only-no-credentials path (default
+  `LLM_PROVIDER=claude`, no Anthropic key on this machine) and the
+  `provider=openai` full-answer path - both matched what
+  `python -m query.ask` already produces for the identical questions.
+  Also verified the 400 (no technique ID), 404 (technique not in
+  graph), 400 (unknown provider), 413 (oversized body), 422 (malformed
+  JSON / wrong content-type), and 502 (fact-injection guard raising
+  inside `answer()`) paths, plus the catch-all 500 via a monkeypatched
+  exception carrying a planted secret-looking string (confirmed it
+  never appears in the response body).
+- Ran the `red-team-assessment` skill's LLM and code lenses against
+  `api/main.py` per its own trigger conditions (new user-facing input
+  path) - see docs/security-assessment.md's 2026-08-15 "`api/main.py`
+  FastAPI wrapper" entry for the full writeup. Verdict: HTTP exposure
+  doesn't weaken the CLI's already-verified injection resistance (same
+  guarded `rag.answer()` call, no new code in between); code lens
+  (secrets grep, unsafe-exec grep, `pip-audit -r requirements.txt`
+  covering the two new dependencies) came back clean. One honestly
+  logged, not-fixed-this-pass gap: `MaxBodySizeMiddleware` checks
+  `Content-Length` only, not an unbounded chunked-transfer body - noted
+  as a real deployment would want a reverse-proxy body-size limit in
+  front of this.
+- Wrote `docs/decisions/007-api-and-containerization.md`: FastAPI over
+  Flask (Pydantic validation/docs for free, no async-rewrite forcing),
+  and the container never fetches the raw STIX bundle or builds the
+  graph at image-build time, because `data/graph_with_semantics.json`
+  is already a committed, tracked file in this repo - the Dockerfile
+  just `COPY`s it in like any other source file. Single-stage
+  (`python:3.13-slim`) since nothing in `requirements.txt` needs
+  build-stage tooling the runtime stage doesn't also need.
+- Added `Dockerfile`, `.dockerignore` (`.venv/`, `.git/`, `.github/`,
+  `data/raw/`, `data/test_logs/`, `.env`, `NOTES-private.md`, plus
+  `__pycache__`/build artifacts and `docs/graph_visualization.html`,
+  which the API doesn't need), and `docker-compose.yml` (one service,
+  port 8000, an optional `env_file: .env` reference).
+- Docker wasn't installed on this machine at the start of this session
+  - installed `docker.io` and `docker-compose-plugin` from the Kali/
+  Debian repos via `sudo apt-get install` (both free, open-source
+  packages from the standard repo, no paid Docker Desktop account
+  involved - confirmed this with the user before proceeding, since it
+  needed sudo). The installing shell's `docker` group membership
+  needed `sg docker -c "..."` to take effect without a full logout.
+- **Verified for real, not just via TestClient**: `docker build -t
+  attck-graph-api .` succeeded (final image 435MB, single-stage,
+  `python:3.13-slim` base). `docker run` and separately `docker compose
+  up --build` were both used to bring up a live container; `curl`
+  against the running container's `/health`, `/techniques`, and
+  `/query` (both the facts-only and `provider=openai` cases, plus the
+  400/404/413/502 error paths) all returned identical results to the
+  in-process `TestClient` checks and to the existing CLI's verified
+  output for the same questions. Container torn down cleanly
+  (`docker compose down`) after verification.
+- Updated CLAUDE.md's Architecture section (new `api/`/Docker diagram
+  nodes and bullets) and Current status (new dated entry), README.md
+  (diagram, Quick Start's new "Docker alternative" section, repository
+  structure, Roadmap's Phase 4), and docs/security-assessment.md (new
+  dated entry) - per the build-and-document skill's discipline that a
+  real engineering decision with observable consequences gets
+  documented as part of the same session, not reconstructed later.

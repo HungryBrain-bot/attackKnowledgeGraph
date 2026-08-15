@@ -1,0 +1,16 @@
+# One-command demo path: `docker compose up --build`.
+# See docs/decisions/007-api-and-containerization.md for why the graph
+# JSON is baked into the image (already committed to the repo) rather
+# than built or mounted here.
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    # .env holds LLM_PROVIDER / ANTHROPIC_API_KEY / OPENAI_API_KEY -
+    # gitignored, never baked into the image (see Dockerfile /
+    # .dockerignore). Optional: the API still serves /health,
+    # /techniques, and facts-only /query with no .env present at all.
+    env_file:
+      - path: .env
+        required: false

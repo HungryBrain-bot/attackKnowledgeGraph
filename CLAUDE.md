@@ -33,6 +33,10 @@ flowchart LR
     CP --> ASK["query/ask.py (CLI)"]
     OP --> ASK
     KP -.-> ASK
+    CP --> API["api/main.py (FastAPI)"]
+    OP --> API
+    KP -.-> API
+    API --> DOCKER["Dockerfile /<br/>docker-compose.yml"]
     GL --> VZ["visualize/render_graph.py"]
     VZ --> HTMLOUT["docs/graph_visualization.html"]
 
@@ -88,6 +92,31 @@ flowchart LR
   unrelated generator: `graph/generate_diagrams.py` only touches Mermaid
   diagrams inside `GENERATED` markers in existing `.md` files, never
   this HTML file, and this script is never triggered by that skill.
+- `api/` - `main.py`, a FastAPI wrapper around the same query layer
+  `query/ask.py` (CLI) already calls - `POST /query` reuses
+  `query/retrieval.py`, `query/rag.py`, and `query/llm_provider.py`
+  directly (including `has_credentials()`'s facts-only degradation),
+  plus `GET /health` (confirms the graph loaded, with real node/edge
+  counts) and `GET /techniques` (the 13 seed technique IDs). A new
+  entry point on top of existing logic, not a second implementation of
+  it - see docs/decisions/007-api-and-containerization.md for why
+  FastAPI and how request-size/error-handling basics are covered
+  (`MaxBodySizeMiddleware`, a catch-all exception handler), and
+  docs/security-assessment.md's matching dated entry for the LLM/code
+  lens pass run against it before it was called done.
+- `Dockerfile` / `docker-compose.yml` / `.dockerignore` - containerizes
+  `api/`. Single-stage (`python:3.13-slim`; no dependency in
+  `requirements.txt` needs build-stage tooling the runtime stage
+  doesn't). `data/graph_with_semantics.json` is a committed, tracked
+  file in this repo, so the image is just `COPY`'d it like any other
+  source file - the container never fetches the 48MB raw STIX bundle or
+  runs `graph/build_graph.py`/`graph/semantic_edges.py` at build time,
+  and `.dockerignore` excludes `data/raw/`, `data/test_logs/`, and
+  `.env` so neither the raw bundle nor a secret can end up in the image
+  by accident. `docker-compose.yml` wraps the one service with a port
+  mapping and an optional `.env` reference for the LLM provider key -
+  see docs/decisions/007 for the full reasoning, including why this
+  isn't a build-vs-mount tradeoff in the usual sense.
 - `tests/` - `test_query_layer_against_evtx.py` is the project's first
   automated test: cross-checks real fetched atomic-evtx samples (see
   `.claude/skills/fetch-test-logs/`) against the graph, confirming a
@@ -519,11 +548,45 @@ Phase 1 structural graph and Phase 2 semantic edges.
   honestly - linked from both `docs/future/multi-agent-ingestion.md`
   and README's "Future Direction" section, same "no synthetic data"
   discipline as everywhere else in this project.
+- `api/main.py` + `Dockerfile` / `docker-compose.yml` / `.dockerignore` -
+  **Phase 4, built and verified this session (2026-08-15)**: a FastAPI
+  wrapper (`POST /query`, `GET /health`, `GET /techniques`) around the
+  same `query/retrieval.py`/`query/rag.py`/`query/llm_provider.py`
+  functions `query/ask.py` already calls - see the `api/` Architecture
+  bullet above and docs/decisions/007-api-and-containerization.md.
+  Per the `red-team-assessment` skill's trigger conditions (a new
+  user-facing input path), the LLM and code lenses were run against it
+  before being called done - see docs/security-assessment.md's matching
+  2026-08-15 entry: HTTP exposure doesn't weaken the injection
+  resistance already verified for the CLI (same guarded `rag.answer()`
+  call, no new code in between), a `MaxBodySizeMiddleware` and Pydantic
+  field bound handle oversized requests, and a catch-all exception
+  handler was live-verified (via a monkeypatched exception carrying a
+  planted secret-looking string) to return a generic 500 with no leak.
+  One honestly-documented residual gap: the size middleware checks
+  `Content-Length` only, not an unbounded `Transfer-Encoding: chunked`
+  body. **Verified for real, not just unit-tested**: `docker build`,
+  `docker run`, and `docker compose up --build` were all actually
+  executed (Docker wasn't installed on this machine at the start of the
+  session - installed via `apt-get install docker.io
+  docker-compose-plugin`, both free/open-source packages, no paid
+  account needed), and `/health`, `/techniques`, and `/query` (both the
+  facts-only-no-credentials path and the `provider=openai` full-answer
+  path) were hit against the running container with `curl` and compared
+  against the exact same questions already verified through the CLI -
+  identical facts, identical answers. The fact-injection guard, the
+  no-technique-ID 400, the not-in-graph 404, and the oversized-body 413
+  were all re-verified against the live container too, not just assumed
+  to carry over from the in-process `TestClient` checks.
 - Environment: `mitreattack-python` isn't available as a system package
   on this machine (Kali marks Python as externally managed) - use the
   project's `.venv` (gitignored, `python3 -m venv .venv && .venv/bin/pip
   install -r requirements.txt`) rather than the system `python3` to run
-  anything in `graph/` or `query/`.
+  anything in `graph/` or `query/`. Docker is now installed on this
+  machine too (`docker.io` + `docker-compose-plugin` from the Kali/
+  Debian repos - see the `api/` bullet above); the installing user's
+  shell session needed `sg docker -c "..."` to pick up the new `docker`
+  group membership without a full logout, in case that's needed again.
 
 Next: `query/ask.py` has been live-tested end-to-end via `OpenAIProvider`
 (three cases: group-filtered, group-inferred, and the no-technique-ID
@@ -583,6 +646,14 @@ check), and the code lens's SQL/command-injection and web lens's
 XSS/`innerHTML`-context checks have found nothing to catch yet simply
 because this project doesn't have that surface yet, not because they're
 exhaustively verified safe forever.
+`api/main.py` and Docker packaging are now built too (see the Current
+status entry above and docs/decisions/007) - the web lens wasn't
+re-triggered for this addition since the API returns only JSON (no new
+browser-rendered, request-influenced content), which is a reasoned
+"not applicable" per the skill's own conventions, not a skipped check.
+CI (`.github/workflows/test.yml`) doesn't yet build or exercise the
+Docker image - an unbuilt follow-on, not required by anything asked for
+this session, but worth noting the next time CI is touched.
 
 ## Do NOT
 
