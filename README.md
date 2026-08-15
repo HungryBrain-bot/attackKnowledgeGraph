@@ -19,6 +19,19 @@ citation, confidence, and sample_size - regenerate with
 `python -m visualize.render_graph` whenever `data/graph_with_semantics.json`
 changes.
 
+## How this project was built
+
+This repo isn't just the graph - it's built under a set of Claude Code
+skills (`.claude/skills/`) that enforce real engineering discipline:
+decisions documented as they're made, generated content kept visibly
+separate from hand-authored content, future scope deferred deliberately
+instead of silently, and no claim of "verified" without an actual check
+behind it. Those skills have been generalized into a standalone,
+domain-agnostic template set - **[`skills-playbook/`](skills-playbook/README.md)**
+- with real, attributed examples of each pattern actually catching a
+real mistake in this project. Worth a look even if the ATT&CK subject
+matter isn't your interest.
+
 ## See it run
 
 Real output from `python -m query.ask`, captured from an actual run
@@ -274,13 +287,19 @@ docs/attack-patterns/   one case file per seed technique (problem, mechanics,
 docs/decisions/         ADRs for real engineering decisions
 docs/security-assessment.md   dated findings log for the red-team-assessment
                          skill's three lenses (LLM, code, web/frontend)
-docs/future/            design-only, unbuilt: multi-agent CTI ingestion and
-                         DETECTED_BY detection-coverage edges - see the
+docs/future/            design-only, unbuilt: multi-agent CTI ingestion,
+                         DETECTED_BY detection-coverage edges, and
+                         vertical/horizontal scaling - see the
                          "Future Direction" section below
 
 .claude/skills/         build-and-document, attack-pattern-doc, fetch-test-logs,
                          generate-diagrams, red-team-assessment,
-                         scale-to-continuous-ingestion
+                         scale-to-continuous-ingestion, scalability-design,
+                         playbook-sync
+
+skills-playbook/        domain-agnostic templates generalized from the skills
+                         above, for reuse in other projects - see
+                         "How this project was built" near the top of this file
 
 NOTES-private.md        gitignored, personal/product-vision notes only
 ```

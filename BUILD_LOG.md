@@ -1463,3 +1463,58 @@
   and `detection-coverage.md` design docs, same "design-only, dated,
   cross-linked" format - explicit here that one section is *not*
   design-only, since it verifies a real, current fact).
+
+## 2026-08-15 - Skills playbook: generalized templates + real proof they worked
+
+- Added `skills-playbook/` (sibling to `.claude/`, `docs/`, `graph/` at
+  repo root - deliberately discoverable, not buried) with a `README.md`
+  and seven templates under `templates/`: `build-and-document.md`,
+  `entity-case-file-doc.md`, `tiered-external-data-fetch.md`,
+  `generate-diagrams.md`, `red-team-assessment.md`,
+  `deferred-scope-design-doc.md`, `model-usage-tiering.md`. Six
+  generalize this project's own existing skills (dropping ATT&CK/
+  security-specific content behind `[PLACEHOLDER: ...]` markers); the
+  seventh (`model-usage-tiering`) extracts a convention that had lived
+  informally as a CLAUDE.md section (Haiku/Sonnet/Opus tiering by task
+  risk) into its own reusable template, since it's a clean, fully
+  generic pattern even though it was never a formal skill in this
+  project.
+- `skills-playbook/README.md` leads with philosophy, not a file list -
+  five principles, each backed by a real, specifically-attributed
+  example from this project's own history rather than a generic claim:
+  - **Skills as quality disciplines, not just task shortcuts** - framing
+    for why any of this exists.
+  - **Separate generated from hand-authored content, visibly** - the
+    `generate-diagrams` skill's byte-identical-on-rerun idempotency
+    guarantee, verified for real (not just asserted) by running the
+    generator twice and diffing.
+  - **Document decisions at the moment they're made, not reconstructed
+    later** - the 2026-08-13 reversed T1059.001/T1021.001 edge: caught
+    only while sourcing unrelated new work, *after* the wrong edge had
+    already been pushed to `origin/main`, and fixed with a new commit
+    plus explicit correction notes in the affected case files rather
+    than a silent rewrite.
+  - **Defer scope deliberately, with a written trigger** - `ingestion/`
+    remaining an empty, deliberately-gated placeholder since day one,
+    per `scale-to-continuous-ingestion`'s trigger discipline.
+  - **Never let output claim something is verified without it actually
+    being verified** - two real instances: the fabricated
+    `MANDIANT-2023-017` citation excluded from the schema-reference
+    fixture only after two independent searches turned up nothing real
+    (not taken on the word it was given), and the atomic-evtx dataset's
+    byte-identical-across-tiers raw log files (its README's claimed
+    filtering only actually touched a JSON export, not the raw files
+    alongside it) - caught by diffing file sizes directly, not by
+    trusting the README.
+- Added a "How this project was built" section near the top of the root
+  `README.md` (deliberately early - a differentiator worth surfacing,
+  per the request), linking through to `skills-playbook/README.md`
+  rather than duplicating its content, plus fixed the repository-
+  structure block's `.claude/skills/` listing (it had drifted - missing
+  `scalability-design`, added this session's `playbook-sync`) and added
+  a `skills-playbook/` row.
+- Updated CLAUDE.md's Architecture section (new `skills-playbook/`
+  bullet) and Current status (new dated entry, this one).
+- No code changes - documentation/template-only addition, confirmed by
+  scope (only `skills-playbook/`, `README.md`, `CLAUDE.md`, and this
+  file changed in this commit).

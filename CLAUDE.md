@@ -137,6 +137,17 @@ flowchart LR
   web/frontend - renamed and broadened 2026-08-15 from
   `ai-security-assessment`, LLM-only) - see
   `.claude/skills/red-team-assessment/SKILL.md`
+- `skills-playbook/` - domain-agnostic templates generalized from this
+  project's own `.claude/skills/`, for reuse in other projects. Leads
+  with philosophy (skills as quality disciplines; separate generated
+  from hand-authored content; document decisions when they're made;
+  defer scope with a written trigger; never claim something's verified
+  without checking) backed by real, attributed examples from this
+  project's own BUILD_LOG.md - not generic advice. See
+  `skills-playbook/README.md` and the root README's "How this project
+  was built" section (near the top, since it's meant to be
+  discoverable). Kept in sync going forward by
+  `.claude/skills/playbook-sync/`, below.
 - `NOTES-private.md` - gitignored, personal/product-vision notes only.
   Never referenced by anything that gets committed.
 
@@ -601,6 +612,22 @@ Phase 1 structural graph and Phase 2 semantic edges.
   no-technique-ID 400, the not-in-graph 404, and the oversized-body 413
   were all re-verified against the live container too, not just assumed
   to carry over from the in-process `TestClient` checks.
+- `skills-playbook/` - **built this session (2026-08-15)**: seven
+  domain-agnostic templates (`build-and-document`, `entity-case-file-doc`,
+  `tiered-external-data-fetch`, `generate-diagrams`, `red-team-assessment`,
+  `deferred-scope-design-doc`, `model-usage-tiering`) generalized from
+  this project's own six skills plus the previously-informal model-tier
+  convention above, each with `[PLACEHOLDER: ...]` markers where a new
+  project's specifics go. `skills-playbook/README.md` leads with
+  philosophy, backed by three real, attributed examples from this
+  project's actual history (the reversed T1059.001/T1021.001 edge
+  correction, the excluded fabricated Mandiant citation, the
+  byte-identical-across-tiers EVTX finding) rather than generic advice.
+  Cross-linked from the root README's new "How this project was built"
+  section (near the top, deliberately, since this is meant to be
+  discoverable rather than buried). Kept in sync going forward by a new
+  gating skill, `.claude/skills/playbook-sync/` (see its own entry in
+  this file once added).
 - Environment: `mitreattack-python` isn't available as a system package
   on this machine (Kali marks Python as externally managed) - use the
   project's `.venv` (gitignored, `python3 -m venv .venv && .venv/bin/pip
