@@ -479,6 +479,29 @@ Phase 1 structural graph and Phase 2 semantic edges.
   README's "Future Direction" section. Trigger to actually build it:
   access to real, environment-specific detection rule data - not a
   hypothetical or public dataset standing in for one.
+- `docs/future/scalability.md` + `.claude/skills/scalability-design/` -
+  **mostly design-only, dated 2026-08-15**, same discipline as the two
+  docs above - vertical/horizontal scaling analysis for this project's
+  actual architecture, not generic scaling advice. One section is not
+  design-only: "Already true today" verifies, by reading the actual
+  code (`api/main.py` and everything it calls), that the API is
+  genuinely stateless - N replicas behind a load balancer, zero
+  coordination, correct today, not a future goal. The rest is deferred:
+  a vertical-scaling lever priority order specific to this codebase
+  (request concurrency, then caching, then a graph-representation
+  change - explicitly not leading with the graph, since the running
+  service's actual in-memory graph is ~50KB at today's 26 nodes/71
+  edges, distinct from `graph/build_graph.py`'s already-separately-
+  flagged 48MB STIX-bundle load, which is a maintainer-only build-time
+  cost with no bearing on API request latency), and four real-scale
+  infrastructure items (a graph database, a container orchestrator,
+  query caching, rate limiting), each paired with the concrete
+  condition that would make it worth building - none of it built, none
+  of it a roadmap item. Gated by `.claude/skills/scalability-design/`'s
+  trigger conditions (an explicit request to plan scaling, or the seed
+  set genuinely growing significantly beyond 13 techniques, or a real
+  concurrent-user scenario) - not routine build sessions. Cross-linked
+  from `.claude/skills/build-and-document/SKILL.md`.
 - `.claude/skills/fetch-test-logs/` - a data-fetching skill + script for
   real Atomic Red Team-simulated EVTX/JSON logs
   ([arniki/atomic-evtx](https://github.com/arniki/atomic-evtx)), cross-

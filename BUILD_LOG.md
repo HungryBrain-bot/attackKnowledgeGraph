@@ -1415,3 +1415,51 @@
   dated entry) - per the build-and-document skill's discipline that a
   real engineering decision with observable consequences gets
   documented as part of the same session, not reconstructed later.
+
+## 2026-08-15 - Scalability design skill + doc (design-only, plus one verified fact)
+
+- Added `.claude/skills/scalability-design/SKILL.md`, gated the same way
+  as `scale-to-continuous-ingestion`: only triggers on an explicit
+  request to plan scaling, or a genuinely load-bearing change (the seed
+  set growing significantly beyond 13 techniques, a real concurrent-user
+  scenario) - never automatically or as part of routine build sessions.
+- Applied the skill once, for real, writing `docs/future/scalability.md`.
+  Grounded every claim in this project's actual code rather than generic
+  scaling advice:
+  - **Verified, not assumed, that the API is already stateless**: read
+    `api/main.py` and everything `POST /query` calls
+    (`query/retrieval.py`, `query/rag.py`, `query/llm_provider.py`) -
+    the graph is loaded once per process and only ever read
+    (`get_technique_context()`'s `g.nodes`/`g.in_edges`/`g.out_edges`
+    calls, never a mutation), and a repo-wide grep found no cache or
+    other in-process mutable state beyond the one read-only `_graph`
+    object. Conclusion: N replicas behind a load balancer need zero
+    coordination - already true today, not a future goal, stated as
+    such in its own "Already true today" section rather than mixed in
+    with the design-only material.
+  - **Vertical scaling**: measured today's actual numbers (26 nodes/71
+    edges, ~50KB `data/graph_with_semantics.json`) and explicitly
+    distinguished that from the separate, already-flagged-in-code
+    tradeoff in `graph/build_graph.py` (the 48MB raw STIX bundle load) -
+    the latter is build-time-only and never touches the API's request
+    path, so it doesn't belong in a *runtime* vertical-scaling
+    discussion even though it sounds like the same category of
+    tradeoff. Laid out a lever priority order for the running service
+    instead: request concurrency/threads first (the LLM call dominates
+    latency, not graph traversal at this size), caching repeated
+    queries second, a graph-representation change last and only if the
+    numbers actually change.
+  - **What would need to change for real scale**: a real graph database
+    (Neo4j or similar), a real container orchestrator, query caching,
+    and rate limiting - each written with its own concrete trigger
+    condition (e.g. rate limiting's trigger is "genuinely publicly
+    reachable with real traffic," tied back to
+    docs/security-assessment.md's existing OWASP LLM10 out-of-scope
+    note, which stops being out-of-scope at that point) rather than
+    proposed as a roadmap.
+- Cross-referenced from `.claude/skills/build-and-document/SKILL.md`
+  (same pattern as its existing `scale-to-continuous-ingestion` bullet)
+  and from CLAUDE.md (new bullet alongside the `multi-agent-ingestion.md`
+  and `detection-coverage.md` design docs, same "design-only, dated,
+  cross-linked" format - explicit here that one section is *not*
+  design-only, since it verifies a real, current fact).

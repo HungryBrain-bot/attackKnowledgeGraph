@@ -70,6 +70,15 @@ What this makes easier, harder, or explicitly out of scope now.
   scale-to-continuous-ingestion skill and docs/future/multi-agent-
   ingestion.md - deferred design thinking, not built, gated by that
   skill's trigger conditions.
+- On an explicit request to plan how this project would scale, or a
+  genuinely load-bearing change (the seed set growing significantly
+  beyond 13 techniques, a real concurrent-user scenario emerging - not
+  routine build sessions), see the scalability-design skill and
+  docs/future/scalability.md - mostly deferred design thinking, same
+  "design-only, not infrastructure to build now" discipline as the
+  ingestion doc above, except for one section that documents an
+  already-true, already-verified property of the current code (the
+  API's statelessness) rather than a future proposal.
 
 ## Commit conventions
 
