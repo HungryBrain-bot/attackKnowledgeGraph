@@ -1057,3 +1057,99 @@
   section.
 - Added a dedicated CLAUDE.md Current status entry for this doc, matching
   the existing entry for `docs/future/multi-agent-ingestion.md`.
+
+## 2026-08-15 - Visualization tooltip bug: diagnosed and fixed
+
+- User-reported: tooltips in `docs/graph_visualization.html` showed
+  literal `<br>` text instead of line breaks. Diagnosed against the real
+  inlined vis-network 9.1.2 source rather than assumed - grepped the
+  generated HTML's bundled JS for `setText` and found
+  `else this.frame.innerText=t`: vis-network's Popup renders a string
+  `title` via `element.innerText`, never `innerHTML`. Confirmed the
+  exact consequence empirically in headless Chrome before touching code:
+  a raw `\n` in the source string does get converted to a real `<br>` by
+  `innerText`'s setter (verified), while a literal `<br>` renders as four
+  characters (also verified) - and, same root cause, the `_tooltip()`
+  helper's `html.escape()` call was equally wrong, since `innerText`
+  doesn't decode entities either: an escaped `&` rendered on screen as
+  literal `&amp;` instead of `&` (verified with a direct `d.innerText =
+  title; d.innerHTML` round-trip test).
+- Direction, stated explicitly per the request: this is "content is
+  being escaped when it shouldn't be," not a missing-escaping hole -
+  `innerText` is inherently immune to markup/script injection regardless
+  of content, so there was never a live XSS path here, only a display
+  bug from defending against a threat model (HTML parsing) that doesn't
+  apply to this renderer. Documented as the reasoning basis for the new
+  `ai-security-assessment` web-security lens's first finding, logged
+  properly in docs/security-assessment.md as part of that broader change
+  (see below).
+- Fix: `_tooltip()` now joins with `\n` and does not escape. Re-verified
+  idempotent after the change (`diff` on two consecutive runs, zero
+  differences).
+
+## 2026-08-15 - Visualization beautification pass
+
+- Loaded the `dataviz` skill before touching any color, per its own
+  trigger condition, and ran its `validate_palette.js` against the
+  existing node palette (`GROUP_COLORS`'s 3 hues + the old Technique/
+  Tactic colors) rather than eyeballing contrast. Real findings from
+  that run: the old Technique color (`#6C7A89`) failed the categorical
+  chroma floor ("reads gray" - judged an acceptable, intentional
+  exception here since Technique nodes shouldn't visually read as
+  belonging to a hue category the way GROUP_COLORS's 3 groups do, and
+  shape already distinguishes it); the old Tactic color (`#D9A441`) and
+  `GROUP_COLORS`'s Lazarus Group green both fell below 3:1 contrast
+  against the canvas surface with no direct label to provide the
+  validator's "relief" exemption *for edge use* (node labels are always
+  visible so nodes clear this on their own merits, but a colored edge
+  with no label doesn't) - this is the concrete basis for the user's
+  "gray-on-white structural edges are hard to distinguish" complaint,
+  generalized: it wasn't really about structural edges specifically, it
+  was edge contrast broadly, including semantic edges at the low-
+  confidence end of the opacity range.
+- `GROUP_COLORS` itself was deliberately left untouched - it's
+  `graph/generate_diagrams.py`'s existing, already-shared palette, and
+  changing it here would break "a group means the same color everywhere
+  in the repo," a property CLAUDE.md already calls out as worth
+  preserving. Only Technique (`#4C5A70`) and Tactic (`#B8760F`) changed,
+  chosen by iterating candidates through the validator until contrast
+  passed (`#B8760F` clears 3:1; `#4C5A70`'s chroma-floor "fail" is the
+  accepted exception above).
+- Fixed the edge-contrast problem directly instead of only picking
+  better hex values: semantic edge opacity is no longer confidence-
+  driven (`SEMANTIC_EDGE_OPACITY`, a fixed 0.85) - width alone now
+  carries the confidence signal, so a low-confidence edge is thinner but
+  never washes out against the canvas the way a low-opacity one did.
+  Structural edges also split into two distinct treatments instead of
+  one flat gray: `USES_TECHNIQUE` (the actual "who does what" fact)
+  darker/heavier, `HAS_TACTIC` (one per technique, low information)
+  lighter/thinner - directly answering "hard to distinguish from each
+  other."
+- Added a `_darken_hex()` helper and gave every node an explicit darker
+  border (via vis-network's `color: {background, border, highlight}`
+  object form instead of a flat color string) so filled shapes read as
+  distinct shapes against the canvas instead of blending into their own
+  fill.
+- Restyled `#graph-controls` from unstyled floating text into a real
+  header bar (light neutral background, bottom border, proper spacing)
+  with a redesigned legend using actual colored swatches (dot/box/star/
+  line, built from the same hex values the graph itself uses, not
+  separate approximations) instead of plain punctuation glyphs. Filter
+  buttons now carry each group's real `GROUP_COLORS` hex as a `--btn-
+  color` CSS custom property, so a button's active state fills with that
+  exact group's color rather than one flat gray for every group - ties
+  the UI control directly to the same color encoding used in the graph.
+- Restyled `div.vis-tooltip` into a card: white background, subtle
+  border, rounded corners, drop shadow, `max-width: 360px` with
+  `overflow-wrap: break-word` so long citation/evidence text wraps
+  instead of running off-screen, and a proper sans-serif font stack
+  instead of the library default. Verified visually, not just by reading
+  the CSS: rendered the exact injected style block plus a real evidence-
+  text sample in headless Chrome and screenshotted it - card renders
+  with visible padding, rounded corners, and correct word-wrapping.
+- Re-verified end-to-end after all styling changes: idempotent (two
+  consecutive runs, zero diff), no console errors in headless Chrome,
+  and the group filter's `applyGroupFilter()` still functions correctly
+  (scripted call confirmed opacity changes and the active button's
+  `--btn-color` swap both still work) - the CSS/markup changes didn't
+  touch the filter's JS logic, but re-checked rather than assumed.

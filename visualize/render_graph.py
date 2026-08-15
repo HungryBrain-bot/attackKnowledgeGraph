@@ -16,10 +16,18 @@ the graph itself) that:
   removing anything - the "what's shared across groups" view stays visible,
   just de-emphasized.
 - Styles structural edges (USES_TECHNIQUE, HAS_TACTIC) distinctly from
-  semantic edges (TEMPORALLY_PRECEDES, CAUSALLY_ENABLES): semantic edges are
-  colored per group_context, dashed for TEMPORALLY_PRECEDES vs solid for
-  CAUSALLY_ENABLES (matching generate_diagrams.py's Mermaid convention), and
-  their line width/opacity scales with `confidence`.
+  semantic edges (TEMPORALLY_PRECEDES, CAUSALLY_ENABLES) and from each
+  other (USES_TECHNIQUE darker/heavier - the actual "who does what" fact -
+  HAS_TACTIC lighter/thinner - every technique has exactly one, so it
+  carries less information and should recede): semantic edges are colored
+  per group_context, dashed for TEMPORALLY_PRECEDES vs solid for
+  CAUSALLY_ENABLES (matching generate_diagrams.py's Mermaid convention),
+  with `confidence` driving line width. Semantic edge opacity is a fixed,
+  legible constant rather than confidence-driven - the dataviz skill's
+  palette validator flagged low-opacity edge colors as failing contrast
+  against the canvas at the low end of the confidence range, so width
+  alone now carries that signal and opacity stays readable regardless of
+  confidence (see BUILD_LOG.md's beautification-pass entry).
 - Gives every semantic edge a hover tooltip with its real confidence,
   sample_size, sources, and evidence text, and every USES_TECHNIQUE edge a
   tooltip with its sources - the "every claim is sourced" property this
@@ -49,13 +57,40 @@ OUTPUT_PATH = REPO_ROOT / "docs" / "graph_visualization.html"
 STRUCTURAL_EDGE_TYPES = ("USES_TECHNIQUE", "HAS_TACTIC")
 SEMANTIC_EDGE_TYPES = ("TEMPORALLY_PRECEDES", "CAUSALLY_ENABLES")
 
+# Neutral tokens, chosen with the dataviz skill's `validate_palette.js`
+# (light mode, run against this exact CANVAS_BG surface - see BUILD_LOG.md).
+# Technique's color intentionally fails the validator's categorical
+# chroma-floor check ("reads gray") - that's deliberate, not an oversight:
+# Technique nodes shouldn't visually read as belonging to any one hue
+# category the way the 3 GROUP_COLORS do, and shape (dot) already
+# distinguishes them from Tactic (box) and Group (star). GROUP_COLORS
+# itself is untouched - it's graph/generate_diagrams.py's existing,
+# already-shared palette, and changing it here would break the "a group
+# means the same color everywhere in the repo" property this module was
+# built to preserve.
+CANVAS_BG = "#fcfcfb"
+HEADER_BG = "#f9f9f7"
+HEADER_BORDER = "#d8d6cc"
+TEXT_PRIMARY = "#0b0b0b"
+TEXT_SECONDARY = "#52514e"
+TOOLTIP_BORDER = "#d8d6cc"
+
 NODE_TYPE_BASE_STYLE = {
-    "Technique": {"shape": "dot", "color": "#6C7A89"},
-    "Tactic": {"shape": "box", "color": "#D9A441"},
+    "Technique": {"shape": "dot", "color": "#4C5A70"},
+    "Tactic": {"shape": "box", "color": "#B8760F"},
     # Group nodes get their color from GROUP_COLORS instead - see _style_node.
 }
 
-STRUCTURAL_EDGE_COLOR = "#B5B5B5"
+# USES_TECHNIQUE is the actual "who does what" structural fact and stays
+# darker/heavier; HAS_TACTIC is a one-per-technique categorization edge
+# that carries little information on its own, so it recedes lighter/
+# thinner rather than competing visually with it or with semantic edges.
+HAS_TACTIC_COLOR = "#c9c7bd"
+HAS_TACTIC_OPACITY = 0.55
+USES_TECHNIQUE_COLOR = "#726f66"
+USES_TECHNIQUE_OPACITY = 0.8
+SEMANTIC_EDGE_OPACITY = 0.85
+
 DIMMED_OPACITY = 0.08
 MIN_NODE_SIZE = 12
 NODE_SIZE_PER_DEGREE = 2.5
@@ -87,7 +122,7 @@ def _tooltip(lines: list[str]) -> str:
     `innerText` rather than `innerHTML`, this content is inert even if it
     contained real markup - do not "fix" that by escaping it again; escape
     only if this ever moves to an `innerHTML`-based tooltip instead (see
-    docs/security-assessment.md's 2026-08-16 finding).
+    docs/security-assessment.md's 2026-08-15 web-security finding).
     """
     return "\n".join(lines)
 
@@ -144,17 +179,33 @@ def _edge_tooltip(edge_type: str, source: str, target: str, data: dict) -> str:
     )
 
 
+def _darken_hex(hex_color: str, factor: float = 0.72) -> str:
+    """Darkens a hex color for a node's border, so filled shapes have a
+    visible edge against CANVAS_BG instead of blending into their own fill."""
+    hex_color = hex_color.lstrip("#")
+    r, g, b = (int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+    r, g, b = (max(0, int(c * factor)) for c in (r, g, b))
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
 def _style_node(g: nx.MultiDiGraph, node_id: str, data: dict) -> dict:
     node_type = data["node_type"]
     degree = g.degree(node_id)
-    style = dict(NODE_TYPE_BASE_STYLE.get(node_type, {"shape": "dot", "color": "#888888"}))
-    style["size"] = _node_size(degree)
-    style["label"] = data.get("attack_id") or data["name"]
-    style["title"] = _node_tooltip(node_type, data, degree)
-    style["node_type"] = node_type
+    base = NODE_TYPE_BASE_STYLE.get(node_type, {"shape": "dot", "color": "#888888"})
+    fill = GROUP_COLORS.get(data["name"], "#888888") if node_type == "Group" else base["color"]
+    style = {
+        "shape": "star" if node_type == "Group" else base["shape"],
+        "color": {
+            "background": fill,
+            "border": _darken_hex(fill),
+            "highlight": {"background": fill, "border": _darken_hex(fill, 0.5)},
+        },
+        "size": _node_size(degree),
+        "label": data.get("attack_id") or data["name"],
+        "title": _node_tooltip(node_type, data, degree),
+        "node_type": node_type,
+    }
     if node_type == "Group":
-        style["shape"] = "star"
-        style["color"] = GROUP_COLORS.get(data["name"], "#888888")
         style["group_name"] = data["name"]
     return style
 
@@ -163,19 +214,23 @@ def _semantic_edge_style(edge_type: str, data: dict) -> dict:
     confidence = data["confidence"]
     color = GROUP_COLORS.get(data["group_context"], "#888888")
     return {
-        "color": {"color": color, "opacity": confidence},
+        "color": {"color": color, "opacity": SEMANTIC_EDGE_OPACITY},
         "width": MIN_SEMANTIC_WIDTH + confidence * (MAX_SEMANTIC_WIDTH - MIN_SEMANTIC_WIDTH),
         "dashes": edge_type == "TEMPORALLY_PRECEDES",
-        "base_opacity": confidence,
+        "base_opacity": SEMANTIC_EDGE_OPACITY,
     }
 
 
-def _structural_edge_style() -> dict:
+def _structural_edge_style(edge_type: str) -> dict:
+    if edge_type == "USES_TECHNIQUE":
+        color, width, opacity = USES_TECHNIQUE_COLOR, 1.5, USES_TECHNIQUE_OPACITY
+    else:  # HAS_TACTIC
+        color, width, opacity = HAS_TACTIC_COLOR, 1, HAS_TACTIC_OPACITY
     return {
-        "color": {"color": STRUCTURAL_EDGE_COLOR, "opacity": 0.5},
-        "width": 1,
+        "color": {"color": color, "opacity": opacity},
+        "width": width,
         "dashes": False,
-        "base_opacity": 0.5,
+        "base_opacity": opacity,
     }
 
 
@@ -189,7 +244,7 @@ def build_network(g: nx.MultiDiGraph) -> Network:
         width="100%",
         directed=True,
         cdn_resources="in_line",
-        bgcolor="#ffffff",
+        bgcolor=CANVAS_BG,
     )
     net.set_options(
         """
@@ -218,7 +273,7 @@ def build_network(g: nx.MultiDiGraph) -> Network:
         style = (
             _semantic_edge_style(edge_type, data)
             if edge_type in SEMANTIC_EDGE_TYPES
-            else _structural_edge_style()
+            else _structural_edge_style(edge_type)
         )
         style["title"] = _edge_tooltip(edge_type, source, target, data)
         style["edge_type"] = edge_type
@@ -240,28 +295,95 @@ def _group_names(g: nx.MultiDiGraph) -> list[str]:
     return sorted(data["name"] for _, data in g.nodes(data=True) if data["node_type"] == "Group")
 
 
+ALL_GROUPS_BTN_COLOR = "#3a3a37"
+
+
+def _dot_swatch(color: str) -> str:
+    return (
+        f'<span class="legend-swatch" style="width:10px; height:10px; '
+        f'border-radius:50%; background:{color};"></span>'
+    )
+
+
+def _box_swatch(color: str) -> str:
+    return f'<span class="legend-swatch" style="width:10px; height:10px; background:{color};"></span>'
+
+
+def _star_swatch(color: str) -> str:
+    return f'<span class="legend-swatch" style="color:{color}; font-size:14px;">&#9733;</span>'
+
+
+def _line_swatch(color: str, dashed: bool = False) -> str:
+    border = "dashed" if dashed else "solid"
+    return (
+        f'<span class="legend-swatch" style="width:22px; height:0; '
+        f'border-top:3px {border} {color}; background:none;"></span>'
+    )
+
+
 CONTROLS_TEMPLATE = """
-<div id="graph-controls" style="font-family: sans-serif; padding: 12px 16px; border-bottom: 1px solid #ddd;">
-  <div style="margin-bottom: 8px;">
-    <strong>Filter by group:</strong>
-    <button type="button" class="group-filter-btn active" data-group="" onclick="applyGroupFilter('')">All groups</button>
+<div id="graph-controls">
+  <div class="controls-row">
+    <span class="controls-label">Filter by group:</span>
+    <button type="button" class="group-filter-btn active" data-group=""
+      style="--btn-color: {all_groups_color};" onclick="applyGroupFilter('')">All groups</button>
     {group_buttons}
   </div>
-  <div style="font-size: 0.85em; color: #444; line-height: 1.6;">
-    <strong>Legend:</strong>
-    &nbsp;&#9679; Technique &nbsp; &#9632; Tactic &nbsp; &#9733; Group (colored by group) &nbsp;|&nbsp;
-    gray edge = structural (USES_TECHNIQUE / HAS_TACTIC) &nbsp;|&nbsp;
-    colored solid edge = CAUSALLY_ENABLES &nbsp; colored dashed edge = TEMPORALLY_PRECEDES
-    &nbsp;(color = group_context, width/opacity = confidence) &nbsp;|&nbsp;
-    hover any edge for its citation, confidence, and sample_size.
+  <div class="legend-row">
+    <span><strong>Nodes:</strong></span>
+    <span>{technique_swatch} Technique</span>
+    <span>{tactic_swatch} Tactic</span>
+    <span>{group_swatch} Group (colored by group)</span>
+    <span><strong>Edges:</strong></span>
+    <span>{uses_swatch} USES_TECHNIQUE</span>
+    <span>{tactic_edge_swatch} HAS_TACTIC</span>
+    <span>{causally_swatch} CAUSALLY_ENABLES (colored by group)</span>
+    <span>{temporally_swatch} TEMPORALLY_PRECEDES (colored by group)</span>
+    <span>width = confidence &middot; hover any edge for its citation, confidence, and sample_size</span>
   </div>
 </div>
 <style>
-  .group-filter-btn {{
-    margin-right: 6px; padding: 4px 10px; border: 1px solid #999; border-radius: 4px;
-    background: #f5f5f5; cursor: pointer; font-size: 0.9em;
+  #graph-controls {{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: {header_bg};
+    border-bottom: 2px solid {header_border};
+    padding: 14px 20px;
   }}
-  .group-filter-btn.active {{ background: #333; color: #fff; border-color: #333; }}
+  #graph-controls .controls-row {{
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;
+  }}
+  #graph-controls .controls-label {{
+    font-weight: 600; color: {text_primary}; font-size: 0.9em; margin-right: 4px;
+  }}
+  #graph-controls .legend-row {{
+    font-size: 0.82em; color: {text_secondary}; line-height: 1.8;
+    display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: center;
+  }}
+  .legend-swatch {{ display: inline-block; vertical-align: middle; margin-right: 5px; }}
+  .group-filter-btn {{
+    padding: 5px 14px; border-radius: 16px; border: 1.5px solid #c3c2b7;
+    background: #ffffff; color: {text_primary}; font-size: 0.85em; cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }}
+  .group-filter-btn:hover {{ border-color: var(--btn-color, #888888); }}
+  .group-filter-btn.active {{
+    background: var(--btn-color, #3a3a37); border-color: var(--btn-color, #3a3a37);
+    color: #ffffff; font-weight: 600;
+  }}
+  div.vis-tooltip {{
+    background: #ffffff !important;
+    border: 1px solid {tooltip_border} !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 16px rgba(11,11,11,0.16) !important;
+    padding: 10px 12px !important;
+    max-width: 360px !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+    color: {text_primary} !important;
+  }}
 </style>
 """
 
@@ -316,10 +438,31 @@ FILTER_SCRIPT_TEMPLATE = """
 def _inject_controls(html_text: str, group_names: list[str]) -> str:
     buttons = "\n    ".join(
         f'<button type="button" class="group-filter-btn" data-group="{html.escape(name)}" '
+        f'style="--btn-color: {GROUP_COLORS.get(name, "#3a3a37")};" '
         f'onclick="applyGroupFilter(\'{html.escape(name)}\')">{html.escape(name)}</button>'
         for name in group_names
     )
-    controls = CONTROLS_TEMPLATE.format(group_buttons=buttons)
+    # A generic mid-tone stand-in for the swatches below - semantic edges are
+    # colored per group_context at render time, not one fixed color, so the
+    # legend shows the encoding (dashed vs. solid, and "colored by group" in
+    # the label) rather than picking one specific group's hex to represent it.
+    generic_group_color = "#8a8a86"
+    controls = CONTROLS_TEMPLATE.format(
+        group_buttons=buttons,
+        all_groups_color=ALL_GROUPS_BTN_COLOR,
+        header_bg=HEADER_BG,
+        header_border=HEADER_BORDER,
+        text_primary=TEXT_PRIMARY,
+        text_secondary=TEXT_SECONDARY,
+        tooltip_border=TOOLTIP_BORDER,
+        technique_swatch=_dot_swatch(NODE_TYPE_BASE_STYLE["Technique"]["color"]),
+        tactic_swatch=_box_swatch(NODE_TYPE_BASE_STYLE["Tactic"]["color"]),
+        group_swatch=_star_swatch(generic_group_color),
+        uses_swatch=_line_swatch(USES_TECHNIQUE_COLOR),
+        tactic_edge_swatch=_line_swatch(HAS_TACTIC_COLOR),
+        causally_swatch=_line_swatch(generic_group_color),
+        temporally_swatch=_line_swatch(generic_group_color, dashed=True),
+    )
     html_text = html_text.replace("<body>", "<body>\n" + controls, 1)
 
     script = FILTER_SCRIPT_TEMPLATE.format(dimmed=DIMMED_OPACITY)
