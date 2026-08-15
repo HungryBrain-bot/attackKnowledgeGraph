@@ -29,8 +29,10 @@ instead of silently, and no claim of "verified" without an actual check
 behind it. Those skills have been generalized into a standalone,
 domain-agnostic template set - **[`skills-playbook/`](skills-playbook/README.md)**
 - with real, attributed examples of each pattern actually catching a
-real mistake in this project. Worth a look even if the ATT&CK subject
-matter isn't your interest.
+real mistake in this project, and kept from going stale by its own
+sync skill (`.claude/skills/playbook-sync/`) rather than being a
+one-time snapshot. Worth a look even if the ATT&CK subject matter isn't
+your interest.
 
 ## See it run
 
@@ -388,7 +390,15 @@ design doc,
 sketches `DETECTED_BY` edges and a coverage-gap view on top of the
 interactive graph visualization above - also design-only, and explicit
 that it can't be populated honestly without real, environment-specific
-detection rule data (public CTI data doesn't include that).
+detection rule data (public CTI data doesn't include that). A third,
+[`docs/future/scalability.md`](docs/future/scalability.md), lays out a
+vertical/horizontal scaling path for the API - mostly design-only the
+same way, except for one section that isn't speculative: it verifies,
+by reading the actual code, that the API is *already* horizontally
+scalable today (stateless, read-only per-process graph load - see that
+doc's "Already true today" section for the reasoning, not just the
+claim). All three docs are gated behind their own trigger-condition
+skills so none of them gets built by accident.
 
 ## Roadmap
 
@@ -421,6 +431,13 @@ detection rule data (public CTI data doesn't include that).
   `.env` baked in, `docker build`/`docker run`/`docker compose up` all
   verified for real against a running container (see "Docker
   alternative" above).
+- **Scaling design + a reusable skills playbook**: `docs/future/
+  scalability.md` (design-only, except one section verifying the API's
+  statelessness is already true today - see "Future Direction," above)
+  and `skills-playbook/` (seven domain-agnostic templates generalized
+  from this project's own skills, kept in sync going forward by
+  `.claude/skills/playbook-sync/` - see "How this project was built,"
+  above).
 
 ### Planned
 - Surfacing cross-group comparisons (docs/decisions/006) in the query
