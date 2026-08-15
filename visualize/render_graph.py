@@ -72,7 +72,24 @@ def _truncate(text: str, limit: int) -> str:
 
 
 def _tooltip(lines: list[str]) -> str:
-    return "<br>".join(html.escape(line) for line in lines)
+    """Joins lines with a real newline, not `<br>`.
+
+    vis-network's Popup renders a string `title` via `element.innerText =
+    title` (confirmed by reading the inlined vis-network 9.1.2 source in a
+    generated output file - not assumed from memory of vis-network's docs,
+    which is what produced this bug the first time). `innerText`'s setter
+    is a plain-text assignment: it never parses its input as HTML, so a
+    literal `<br>` shows up on screen as the four characters `<br>` instead
+    of a line break, and `\\n` is what actually renders as one. It also
+    means this string must NOT be HTML-escaped - `innerText` doesn't decode
+    entities either, so an `html.escape()`'d `&` would render on screen as
+    the literal text `&amp;` instead of `&`. Because the renderer is
+    `innerText` rather than `innerHTML`, this content is inert even if it
+    contained real markup - do not "fix" that by escaping it again; escape
+    only if this ever moves to an `innerHTML`-based tooltip instead (see
+    docs/security-assessment.md's 2026-08-16 finding).
+    """
+    return "\n".join(lines)
 
 
 def _node_size(degree: int) -> float:
