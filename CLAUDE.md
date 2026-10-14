@@ -72,7 +72,16 @@ flowchart LR
   (`python -m query.ask "..."`). See docs/decisions/003-query-layer-
   scope.md for why retrieval is scoped to one technique/one hop and
   entity extraction is plain regex, and docs/decisions/004-llm-provider-
-  abstraction.md for the provider interface.
+  abstraction.md for the provider interface. **Not yet surfaced here**:
+  `graph/semantic_edges.py`'s `CROSS_GROUP_COMPARISONS` (2 real,
+  sourced comparisons - see docs/decisions/006-cross-group-comparison.md)
+  are attached to their edges in the graph but `retrieval.py`/
+  `format_context()` don't read the `comparisons` attribute, so no
+  query answer can yet mention a second group's handling of the same
+  technique pair. Unbuilt follow-on, not a gap in this pass - see
+  docs/decisions/006 and the Current status entry below for why
+  (needs a `red-team-assessment` LLM-lens pass first, since it changes
+  a group-filtered answer's scope).
 - `visualize/` - `render_graph.py` builds an interactive pyvis
   visualization from the same combined graph `query/graph_loader.py`
   loads (a separate consumer of it, not part of the query/RAG path) -
@@ -117,16 +126,24 @@ flowchart LR
   mapping and an optional `.env` reference for the LLM provider key -
   see docs/decisions/007 for the full reasoning, including why this
   isn't a build-vs-mount tradeoff in the usual sense.
-- `tests/` - `test_query_layer_against_evtx.py` is the project's first
-  automated test: cross-checks real fetched atomic-evtx samples (see
-  `.claude/skills/fetch-test-logs/`) against the graph, confirming a
-  technique real telemetry says happened is one our graph actually has
-  structural + semantic content for. Pure `query/retrieval.py` - no LLM
-  call, deterministic, free. Skips (not fails) if
-  `data/test_logs/` hasn't been fetched yet - see `pytest` under Current
-  status. `test_adversarial_queries.py` calls the real query pipeline
-  end-to-end (no mocking) with adversarial inputs - see
-  `.claude/skills/red-team-assessment/`.
+- `tests/` - four files, not one. `test_query_layer_against_evtx.py` was
+  the project's first automated test: cross-checks real fetched
+  atomic-evtx samples (see `.claude/skills/fetch-test-logs/`) against
+  the graph, confirming a technique real telemetry says happened is one
+  our graph actually has structural + semantic content for. Pure
+  `query/retrieval.py` - no LLM call, deterministic, free. Skips (not
+  fails) if `data/test_logs/` hasn't been fetched yet - see `pytest`
+  under Current status. `test_adversarial_queries.py` calls the real
+  query pipeline end-to-end (no mocking) with adversarial inputs - see
+  `.claude/skills/red-team-assessment/`. `test_rag_guard.py` (5 tests,
+  no LLM call, never skip) pins `query/rag.py`'s two deterministic
+  guards - `_check_no_ungrounded_techniques()` and
+  `_check_no_ungrounded_edges()` - including the quoted-rejection
+  non-regression case; see docs/decisions/005. `test_fetch_test_logs_
+  safety.py` pins the path-traversal fix in
+  `.claude/skills/fetch-test-logs/fetch_test_logs.py` found by the code
+  lens of `red-team-assessment` (see docs/security-assessment.md's
+  2026-08-15 entry).
 - `docs/attack-patterns/` - one case file per technique (problem,
   mechanics, how the graph models it, sources) - see
   `.claude/skills/attack-pattern-doc/SKILL.md`
