@@ -89,6 +89,79 @@ the retrieved facts block above and stops there with a one-line note,
 instead of the answer section and instead of an error: the graph half of
 this tool works with zero LLM setup.
 
+### Multi-hop chain query
+
+A question naming 2+ technique IDs routes to bounded multi-hop retrieval
+instead (`get_chain_context()`, docs/decisions/008-multi-hop-chain-
+retrieval.md) - still pure graph traversal, no LLM. Real output,
+captured from an actual run against the graph with no LLM credentials
+configured (the facts-only degradation path, same one described above -
+not a mockup, and nothing below is LLM-generated):
+
+```
+$ python -m query.ask "T1566.001 then T1204.002 then T1059.001 for APT29"
+
+--- Retrieved facts (from the graph, not the LLM) ---
+CHAIN: T1566.001 -> T1204.002 -> T1059.001
+Max hops searched per link: 4 (filtered to group: APT29)
+
+TECHNIQUE: T1566.001 - Spearphishing Attachment
+Tactics: initial-access
+Description: Adversaries may send spearphishing emails with a malicious
+attachment in an attempt to gain access to victim systems. [...]
+
+Used by (structural, from official MITRE ATT&CK data):
+  - APT29 (sources: ESET T3 Threat Report 2021, F-Secure The Dukes,
+    MSTIC NOBELIUM May 2021, Secureworks IRON HEMLOCK Profile)
+  - APT28 (sources: Accenture SNAKEMACKEREL Nov 2018, [...])
+  - Lazarus Group (sources: ClearSky Lazarus Aug 2020, [...])
+
+Semantic edges (filtered to group: APT29):
+  - [APT29] T1566.001 --TEMPORALLY_PRECEDES--> T1204.002 (Malicious File)
+    confidence: 0.75, sample_size: 3, sources: Secureworks IRON HEMLOCK
+    Profile, ESET T3 Threat Report 2021, F-Secure The Dukes
+    evidence: All three reports describe APT29's phishing chain as a
+    single flow: a spearphishing email carries the malicious attachment,
+    and the victim opening it is what triggers the malicious file. [...]
+
+TECHNIQUE: T1204.002 - Malicious File
+[...]
+Semantic edges (filtered to group: APT29):
+  - [APT29] T1204.002 --CAUSALLY_ENABLES--> T1059.001 (PowerShell)
+    confidence: 0.8, sample_size: 3, [...]
+    evidence: F-Secure's 'The Dukes' documents APT29 weaponized Office
+    documents whose macros launch a PowerShell-based backdoor [...] once
+    the user enables content - the malicious file's entire purpose is to
+    hand off to PowerShell. This is a mechanistic causal link [...]
+  - [APT29] T1566.001 (Spearphishing Attachment) --TEMPORALLY_PRECEDES-->
+    T1204.002 [...]
+
+TECHNIQUE: T1059.001 - PowerShell
+[...]
+
+Path T1566.001 -> T1204.002:
+  hop 1: [APT29] T1566.001 (Spearphishing Attachment)
+    --TEMPORALLY_PRECEDES--> T1204.002 (Malicious File)
+    confidence: 0.75, sample_size: 3, [...]
+
+Path T1204.002 -> T1059.001:
+  hop 1: [APT29] T1204.002 (Malicious File) --CAUSALLY_ENABLES-->
+    T1059.001 (PowerShell)
+    confidence: 0.8, sample_size: 3, [...]
+
+(No LLM provider credentials configured - showing retrieved facts only.
+Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env, matching LLM_PROVIDER,
+for a formatted answer.)
+```
+
+T1566.001 and T1059.001 aren't directly connected by any single
+hand-authored edge - the BFS found the real 2-hop path through
+T1204.002 (`TEMPORALLY_PRECEDES` then `CAUSALLY_ENABLES`), the same
+chain APT29's actual phishing-to-execution pipeline follows per the
+cited sources. With LLM credentials configured, the `--- Answer ---`
+section forms the same way as the single-hop example above - formatting
+the facts block exactly as retrieved, nothing added.
+
 ## Why
 
 MITRE ATT&CK catalogs techniques as a taxonomy. It doesn't model sequence,
