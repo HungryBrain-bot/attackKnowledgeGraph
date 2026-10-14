@@ -104,3 +104,13 @@ sequenceDiagram
 - Every answer is verifiable against `format_context()`'s output, which
   is printed alongside the answer in `query/ask.py` - a reviewer never
   has to trust the LLM's citations blind.
+
+## 2026-10-14 update - multi-hop chain retrieval built
+
+The "Alternatives considered" line above rejecting multi-hop retrieval
+"for this pass" is now superseded for the chain-of-technique-IDs case:
+see docs/decisions/008-multi-hop-chain-retrieval.md for
+`get_chain_context()`, a bounded-BFS extension to `retrieval.py` that
+keeps the same no-LLM-in-retrieval guarantee this ADR established. This
+ADR's single-technique decision and reasoning are otherwise unchanged -
+ADR 008 extends the module, it doesn't replace this design.

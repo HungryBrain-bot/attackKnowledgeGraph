@@ -1,14 +1,20 @@
 """
-Graph RAG CLI (Phase 3).
+Graph RAG CLI (Phase 3 + Phase 5 multi-hop extension).
 
     python -m query.ask "what happens after T1059.001 for APT29?"
+    python -m query.ask "T1566.001 then T1204.002 then T1059.001 for APT29?"
 
-Extracts a technique ID (required) and an optional group name from the
-question with plain string/regex matching - no LLM call is needed or
-used for this step, since ATT&CK technique IDs and this project's three
-seed group names are unambiguous, well-known identifiers. Retrieval
-(graph traversal, query/retrieval.py) and generation (Claude formats the
-retrieved facts, query/rag.py) stay two separate, clearly-bounded steps.
+Extracts every technique ID (at least one required) and an optional
+group name from the question with plain string/regex matching - no LLM
+call is needed or used for this step, since ATT&CK technique IDs and
+this project's three seed group names are unambiguous, well-known
+identifiers. One technique ID uses the single-hop retrieval path
+(query/retrieval.py's get_technique_context()); 2+, in the order they
+appear in the question, uses the bounded multi-hop chain path
+(get_chain_context() - see docs/decisions/008-multi-hop-chain-
+retrieval.md). Retrieval (graph traversal, query/retrieval.py) and
+generation (the LLM formats the retrieved facts, query/rag.py) stay two
+separate, clearly-bounded steps either way.
 """
 import re
 import sys
@@ -17,14 +23,29 @@ from graph.seed_config import SEED_GROUPS
 from query.graph_loader import load_graph
 from query.llm_provider import has_credentials
 from query.rag import answer
-from query.retrieval import format_context, get_technique_context
+from query.retrieval import format_chain_context, format_context, get_chain_context, get_technique_context
 
 TECHNIQUE_ID_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b", re.IGNORECASE)
 
 
+def extract_technique_ids(question: str) -> list[str]:
+    """Every technique ID mentioned, in the order they first appear,
+    deduplicated. Powers both the single-technique and multi-hop chain
+    paths in main() below."""
+    ids = []
+    for m in TECHNIQUE_ID_RE.finditer(question):
+        tid = m.group(0).upper()
+        if tid not in ids:
+            ids.append(tid)
+    return ids
+
+
 def extract_technique_id(question: str) -> str | None:
-    m = TECHNIQUE_ID_RE.search(question)
-    return m.group(0).upper() if m else None
+    """Back-compat single-ID extraction - api/main.py (still single-hop
+    only) and this module's own single-technique path both use this.
+    Returns the first technique ID mentioned, or None."""
+    ids = extract_technique_ids(question)
+    return ids[0] if ids else None
 
 
 def extract_group(question: str) -> str | None:
@@ -41,8 +62,8 @@ def main() -> None:
         sys.exit(1)
     question = " ".join(sys.argv[1:])
 
-    technique_id = extract_technique_id(question)
-    if technique_id is None:
+    technique_ids = extract_technique_ids(question)
+    if not technique_ids:
         print(
             "Couldn't find a technique ID (e.g. T1059.001) in the question - "
             "this prototype's query layer requires one."
@@ -53,12 +74,16 @@ def main() -> None:
     g = load_graph()
 
     try:
-        context = get_technique_context(g, technique_id, group=group)
+        if len(technique_ids) >= 2:
+            context = get_chain_context(g, technique_ids, group=group)
+            facts = format_chain_context(context)
+        else:
+            context = get_technique_context(g, technique_ids[0], group=group)
+            facts = format_context(context)
     except ValueError as e:
         print(f"Error: {e}")
         sys.exit(1)
 
-    facts = format_context(context)
     print("--- Retrieved facts (from the graph, not the LLM) ---")
     print(facts)
 

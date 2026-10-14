@@ -1556,3 +1556,94 @@
   scope (only `.claude/skills/playbook-sync/`,
   `.claude/skills/build-and-document/SKILL.md`, CLAUDE.md, and this file
   changed in this commit).
+
+## 2026-10-14 - Multi-hop chain retrieval (Phase 5)
+
+- `query/retrieval.py` gains `get_chain_context()` + `format_chain_context()`:
+  given an ordered chain of 2+ technique IDs, each gets its own one-hop
+  context (reusing `get_technique_context()` - no duplicated validation
+  or fact-extraction logic), and each consecutive pair is connected via
+  a bounded BFS (`MAX_CHAIN_HOPS = 4`) over semantic edges
+  (TEMPORALLY_PRECEDES/CAUSALLY_ENABLES) only, optionally group-filtered.
+  Still zero LLM calls in retrieval - same grounding guarantee as the
+  existing single-hop path, and an unreachable link is reported
+  explicitly ("no semantic-edge path found within N hops"), never
+  silently dropped, to close off the exact gap an LLM would be most
+  tempted to fill from its own ATT&CK training knowledge.
+- Refactored the previously-nested `edge_fact`/`matches_group` closures
+  in `get_technique_context()` into module-level helpers
+  (`_edge_fact`/`_matches_group`/`_edge_core_fields`), shared with the
+  new multi-hop `_hop_fact()`/`_find_semantic_path()` - per this
+  project's Code Review Standards (named helpers over inline closures).
+- `query/ask.py`: `extract_technique_id()` (singular) is now a thin
+  back-compat wrapper around new `extract_technique_ids()` (plural,
+  returns every technique ID in the question, in order, deduplicated).
+  `main()` routes to the chain path when 2+ IDs are found, the unchanged
+  single-hop path otherwise. `api/main.py` still only calls the
+  back-compat singular wrapper - the REST API doesn't expose the chain
+  path yet, an explicit, documented follow-on, not an oversight.
+- Verified for real, not just unit-tested: ran
+  `python -m query.ask "T1566.001 then T1204.002 then T1059.001 for
+  APT29"` against the live graph - correctly found the real 2-hop
+  TEMPORALLY_PRECEDES -> CAUSALLY_ENABLES path. Also manually confirmed
+  a direct 1-hop case, a 2-hop case, and a genuinely-unreachable pair
+  (T1566.001 -> T1560.001 for APT29) all produce the right facts block.
+- Added `tests/test_chain_retrieval.py` (8 tests, no LLM call, never
+  skip): direct one-hop, two-hop, no-path, a 3-technique/2-link chain,
+  a group filter making an otherwise-real edge unreachable (confirming
+  the filter doesn't leak another group's path), the two `ValueError`
+  cases (fewer than 2 IDs; an invalid technique ID), and that
+  `format_chain_context()` never prints a fabricated hop for an
+  unreachable link. Full existing suite re-run clean alongside it
+  (23 passed, 7 skipped - same skip count as before, nothing newly
+  broken).
+- Wrote docs/decisions/008-multi-hop-chain-retrieval.md and appended a
+  short dated update to docs/decisions/003-query-layer-scope.md pointing
+  at it (003's own single-technique decision and reasoning are
+  otherwise untouched - 008 extends it, doesn't replace it).
+- Updated CLAUDE.md (`query/` architecture bullet, `tests/` bullet,
+  Current status "Next" paragraph) and README.md (Repository structure's
+  `query/`/`tests/` listings, Roadmap - new Phase 5 entry plus two
+  Planned items: exposing the chain path through `api/main.py`, and
+  multi-entity retrieval remaining a separate scope cut per ADR 003).
+
+## 2026-10-14 - api/main.py exposes the multi-hop chain path too
+
+Same-day follow-up to Phase 5 (multi-hop chain retrieval, above) - the
+CLI got chain support first, closing the gap on the REST API right
+after rather than leaving it as unbuilt follow-on work.
+
+- `api/main.py`'s `/query` now uses `query/ask.py`'s
+  `extract_technique_ids()` (plural) instead of the singular
+  `extract_technique_id()`, routing 2+ technique IDs to
+  `get_chain_context()`/`format_chain_context()` exactly like the CLI
+  does - same code path, same grounding guarantee, reached over HTTP.
+- `QueryResponse.technique_id: str` became `technique_ids: list[str]` to
+  carry a chain's full ID list. A deliberate breaking change to the
+  response shape - checked first that nothing documented (ADR 007,
+  README's curl examples) pins the old singular field name, so there's
+  no real external consumer to break.
+- Didn't re-trigger a `red-team-assessment` LLM-lens pass: this reuses
+  `rag.answer()` and its deterministic grounding guards (docs/decisions/
+  005) completely unchanged - no new prompt-construction logic, just the
+  same guarded call reached through a different entry point, same
+  reasoning CLAUDE.md already used for why the Docker/API work didn't
+  need a fresh web-lens pass.
+- Added `tests/test_api.py` (9 tests, FastAPI `TestClient`, no LLM call,
+  never skip) - this closes a real, previously-noted gap: there were no
+  committed API tests before this commit, only documented manual
+  `curl` verification. Covers `/health`, `/techniques`, single-hop
+  `/query`, chain `/query`, the no-path-found case, and the 400/404/422
+  error paths.
+- Added `httpx>=0.27` to requirements.txt (FastAPI's `TestClient`
+  dependency) - ran `pip-audit` against it per the `red-team-assessment`
+  code lens's "requirements.txt gains a dependency" trigger: no known
+  vulnerabilities.
+- Verified for real: `TestClient` calls against the live app for both
+  `/query` paths plus `/health`, confirmed response bodies match the
+  CLI's equivalent output; full suite re-run clean (32 passed, 7 skipped
+  - same skip count as before `test_api.py` was added, 9 new tests all
+  passing, nothing broken).
+- Updated docs/decisions/008, CLAUDE.md (`api/` and `query/` bullets,
+  `tests/` count), and README.md (Phase 5 Roadmap entry, repo structure's
+  `api/`/`tests/` listings, removed the now-stale Planned item for this).
