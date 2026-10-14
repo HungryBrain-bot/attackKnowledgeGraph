@@ -70,9 +70,24 @@ flowchart LR
   constrained by a system prompt to formatting only - LLM does not
   originate facts; `ask.py` is the CLI entry point
   (`python -m query.ask "..."`). See docs/decisions/003-query-layer-
-  scope.md for why retrieval is scoped to one technique/one hop and
-  entity extraction is plain regex, and docs/decisions/004-llm-provider-
-  abstraction.md for the provider interface. **Not yet surfaced here**:
+  scope.md for why retrieval is scoped to one technique/one hop by
+  default and entity extraction is plain regex, and docs/decisions/004-
+  llm-provider-abstraction.md for the provider interface. **Multi-hop
+  chain retrieval (2026-10-14, docs/decisions/008-multi-hop-chain-
+  retrieval.md)**: `retrieval.py` now also exports `get_chain_context()`/
+  `format_chain_context()` - given 2+ technique IDs in order, each gets
+  its own one-hop context (reusing `get_technique_context()`) and each
+  consecutive pair is connected (or not) via a bounded BFS over semantic
+  edges only, capped at `MAX_CHAIN_HOPS = 4`. Still pure graph traversal,
+  no LLM, and an unreachable link is reported explicitly rather than
+  silently dropped - same grounding discipline as the single-hop path.
+  `ask.py`'s `extract_technique_ids()` (plural) now returns every
+  technique ID in a question; 2+ routes to the chain path automatically,
+  exactly 1 keeps the unchanged single-hop path.
+  `api/main.py` does NOT yet expose the chain path - it still resolves
+  only the first technique ID via the back-compat `extract_technique_id()`
+  wrapper; extending the API is a separate, unbuilt follow-on. **Not yet
+  surfaced here**:
   `graph/semantic_edges.py`'s `CROSS_GROUP_COMPARISONS` (2 real,
   sourced comparisons - see docs/decisions/006-cross-group-comparison.md)
   are attached to their edges in the graph but `retrieval.py`/
@@ -126,7 +141,7 @@ flowchart LR
   mapping and an optional `.env` reference for the LLM provider key -
   see docs/decisions/007 for the full reasoning, including why this
   isn't a build-vs-mount tradeoff in the usual sense.
-- `tests/` - four files, not one. `test_query_layer_against_evtx.py` was
+- `tests/` - five files, not one. `test_query_layer_against_evtx.py` was
   the project's first automated test: cross-checks real fetched
   atomic-evtx samples (see `.claude/skills/fetch-test-logs/`) against
   the graph, confirming a technique real telemetry says happened is one
@@ -143,7 +158,10 @@ flowchart LR
   safety.py` pins the path-traversal fix in
   `.claude/skills/fetch-test-logs/fetch_test_logs.py` found by the code
   lens of `red-team-assessment` (see docs/security-assessment.md's
-  2026-08-15 entry).
+  2026-08-15 entry). `test_chain_retrieval.py` (8 tests, no LLM call,
+  never skip) pins `get_chain_context()`/`format_chain_context()`'s
+  direct-hop, multi-hop, no-path, and group-filter-unreachability
+  behavior - see docs/decisions/008.
 - `docs/attack-patterns/` - one case file per technique (problem,
   mechanics, how the graph models it, sources) - see
   `.claude/skills/attack-pattern-doc/SKILL.md`
@@ -686,8 +704,13 @@ APT29 `T1105->T1003.002` edge's "not an inference" claim, which surfaced
 as a possible over-statement while re-reading its source report during
 this session's cross-group research but wasn't independently confirmed
 either way. Retrieval is single-technique/one-hop by
-design (docs/decisions/003) - multi-hop or multi-entity queries are a
-future extension, not a gap in this pass. `tests/` has its first real
+design (docs/decisions/003) for the common case; a chain of 2+
+technique IDs now routes to bounded multi-hop retrieval instead
+(`get_chain_context()`, 2026-10-14, docs/decisions/008) - `api/main.py`
+doesn't expose that chain path yet, unbuilt follow-on. Multi-entity
+queries (e.g. comparing two groups in one call, beyond the existing
+`comparisons` edge attribute) remain a future extension, not a gap in
+this pass. `tests/` has its first real
 test (query layer vs. real EVTX telemetry) - extending coverage to
 `graph/` is unbuilt. CI now exists (`.github/workflows/test.yml`, see
 below) but only runs the deterministic/free tests, per design - no

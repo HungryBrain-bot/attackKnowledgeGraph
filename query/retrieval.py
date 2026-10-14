@@ -1,26 +1,80 @@
 """
-Graph RAG retrieval (Phase 3).
+Graph RAG retrieval (Phase 3 + Phase 5 multi-hop extension).
 
-Given a technique ID (and optionally a group), traverses the combined
-structural + semantic graph to build a structured set of facts. This is
-the "R" in Graph RAG: pure graph traversal, no LLM involved - the LLM in
-rag.py only ever sees what this module retrieves, per this project's
-"LLM does not originate facts" rule (see CLAUDE.md, Architecture).
+Given one technique ID, or an ordered chain of technique IDs, traverses
+the combined structural + semantic graph to build a structured set of
+facts. This is the "R" in Graph RAG: pure graph traversal, no LLM
+involved - the LLM in rag.py only ever sees what this module retrieves,
+per this project's "LLM does not originate facts" rule (see CLAUDE.md,
+Architecture).
 
-WHY SINGLE-TECHNIQUE-CENTRIC, ONE HOP (see docs/decisions/003-query-
-layer-scope.md): every case file's "What This Enables" section is
-already phrased as "technique X observed, group Y - what's next / what
-enabled it" - that's the shape the semantic edges were actually
-authored to answer. This module retrieves exactly that: one technique's
-structural usage plus its directly-connected semantic edges, optionally
-filtered to one group. It does not walk multiple hops or resolve
-multi-entity questions - a deliberate scope cut, not an oversight.
+WHY SINGLE-TECHNIQUE-CENTRIC, ONE HOP, BY DEFAULT (see docs/decisions/
+003-query-layer-scope.md): every case file's "What This Enables" section
+is already phrased as "technique X observed, group Y - what's next /
+what enabled it" - that's the shape the semantic edges were actually
+authored to answer. `get_technique_context()` retrieves exactly that.
+
+MULTI-HOP CHAIN RETRIEVAL (see docs/decisions/008-multi-hop-chain-
+retrieval.md): when a question names 2+ technique IDs in sequence,
+`get_chain_context()` walks the semantic-edge graph between each
+consecutive pair with a bounded BFS - still pure Python graph traversal,
+no LLM, same grounding guarantee as the single-hop path. This replaces
+the "rejected for this pass" multi-hop line in ADR 003 now that there's
+a real need for it; see ADR 008 for why BFS/bounded-depth rather than an
+unbounded search or an LLM-driven walk.
 """
 from __future__ import annotations
+
+from collections import deque
 
 import networkx as nx
 
 SEMANTIC_EDGE_TYPES = ("TEMPORALLY_PRECEDES", "CAUSALLY_ENABLES")
+
+# Bounded rather than unbounded: the semantic-edge graph is small (17
+# hand-authored edges today) and a chain query only makes sense between
+# techniques already roughly kill-chain-adjacent, so 4 hops is generous
+# for anything this prototype's data actually supports. Revisit this if
+# the semantic-edge set grows enough that 4 hops stops reaching
+# genuinely connected techniques.
+MAX_CHAIN_HOPS = 4
+
+
+def _matches_group(data: dict, group: str | None) -> bool:
+    return group is None or data.get("group_context", "").lower() == group.lower()
+
+
+def _edge_core_fields(data: dict) -> dict:
+    """Shared field extraction for edge facts - confidence/sample_size/
+    sources/evidence/group_context/edge_type - used by both the one-hop
+    `_edge_fact()` and the multi-hop `_hop_fact()` builders below."""
+    return {
+        "edge_type": data["edge_type"],
+        "group_context": data["group_context"],
+        "confidence": data["confidence"],
+        "sample_size": data["sample_size"],
+        "sources": data["sources"],
+        "evidence": data["evidence"],
+    }
+
+
+def _edge_fact(g: nx.MultiDiGraph, other: str, data: dict, direction: str) -> dict:
+    return {
+        "direction": direction,
+        "other_technique": other,
+        "other_technique_name": g.nodes[other].get("name", other),
+        **_edge_core_fields(data),
+    }
+
+
+def _hop_fact(g: nx.MultiDiGraph, source: str, target: str, data: dict) -> dict:
+    return {
+        "from_technique": source,
+        "from_technique_name": g.nodes[source].get("name", source),
+        "to_technique": target,
+        "to_technique_name": g.nodes[target].get("name", target),
+        **_edge_core_fields(data),
+    }
 
 
 def get_technique_context(g: nx.MultiDiGraph, technique_id: str, group: str | None = None) -> dict:
@@ -50,30 +104,14 @@ def get_technique_context(g: nx.MultiDiGraph, technique_id: str, group: str | No
         if data.get("edge_type") == "USES_TECHNIQUE"
     ]
 
-    def edge_fact(other: str, data: dict, direction: str) -> dict:
-        return {
-            "direction": direction,
-            "other_technique": other,
-            "other_technique_name": g.nodes[other].get("name", other),
-            "edge_type": data["edge_type"],
-            "group_context": data["group_context"],
-            "confidence": data["confidence"],
-            "sample_size": data["sample_size"],
-            "sources": data["sources"],
-            "evidence": data["evidence"],
-        }
-
-    def matches_group(data: dict) -> bool:
-        return group is None or data.get("group_context", "").lower() == group.lower()
-
     semantic_edges = [
-        edge_fact(target, data, "outgoing")
+        _edge_fact(g, target, data, "outgoing")
         for _, target, data in g.out_edges(technique_id, data=True)
-        if data.get("edge_type") in SEMANTIC_EDGE_TYPES and matches_group(data)
+        if data.get("edge_type") in SEMANTIC_EDGE_TYPES and _matches_group(data, group)
     ] + [
-        edge_fact(source, data, "incoming")
+        _edge_fact(g, source, data, "incoming")
         for source, _, data in g.in_edges(technique_id, data=True)
-        if data.get("edge_type") in SEMANTIC_EDGE_TYPES and matches_group(data)
+        if data.get("edge_type") in SEMANTIC_EDGE_TYPES and _matches_group(data, group)
     ]
 
     return {
@@ -84,6 +122,91 @@ def get_technique_context(g: nx.MultiDiGraph, technique_id: str, group: str | No
         "used_by": used_by,
         "group_filter": group,
         "semantic_edges": semantic_edges,
+    }
+
+
+def _find_semantic_path(
+    g: nx.MultiDiGraph,
+    source: str,
+    target: str,
+    group: str | None,
+    max_hops: int,
+) -> list[dict] | None:
+    """Bounded, early-exit BFS from `source` to `target` over directed
+    semantic edges only (TEMPORALLY_PRECEDES/CAUSALLY_ENABLES),
+    optionally filtered to one group, up to `max_hops` hops deep.
+
+    BFS (not DFS) so the first path found is guaranteed shortest. Returns
+    the ordered list of hop-facts connecting source to target, or None
+    if no such path exists within max_hops.
+    """
+    if source == target:
+        return []
+
+    queue: deque[tuple[str, list[dict]]] = deque([(source, [])])
+    visited = {source}
+
+    while queue:
+        node, path = queue.popleft()
+        if len(path) >= max_hops:
+            continue
+        for _, next_node, data in g.out_edges(node, data=True):
+            if data.get("edge_type") not in SEMANTIC_EDGE_TYPES or not _matches_group(data, group):
+                continue
+            if next_node in visited:
+                continue
+            new_path = path + [_hop_fact(g, node, next_node, data)]
+            if next_node == target:
+                return new_path
+            visited.add(next_node)
+            queue.append((next_node, new_path))
+
+    return None
+
+
+def get_chain_context(
+    g: nx.MultiDiGraph,
+    technique_ids: list[str],
+    group: str | None = None,
+    max_hops: int = MAX_CHAIN_HOPS,
+) -> dict:
+    """Multi-hop counterpart to `get_technique_context()`: builds a
+    structured fact set for an ordered chain of 2+ techniques.
+
+    Each technique in the chain gets its own one-hop context (reusing
+    `get_technique_context()`, so validation and per-technique facts
+    stay in one place). For each consecutive pair in `technique_ids`,
+    does a bounded BFS over semantic edges to find the shortest
+    connecting path, up to `max_hops` hops - still pure graph traversal,
+    no LLM, same grounding guarantee as the single-hop path.
+
+    Raises ValueError if fewer than 2 technique IDs are given, or if any
+    of them isn't a Technique node in the graph (via
+    `get_technique_context()`).
+    """
+    if len(technique_ids) < 2:
+        raise ValueError("get_chain_context needs at least 2 technique IDs - use get_technique_context for one")
+
+    techniques = [get_technique_context(g, tid, group=group) for tid in technique_ids]
+
+    links = []
+    for source, target in zip(technique_ids, technique_ids[1:]):
+        path = _find_semantic_path(g, source, target, group, max_hops)
+        links.append(
+            {
+                "from": source,
+                "to": target,
+                "path": path,
+                "hops": len(path) if path is not None else None,
+            }
+        )
+
+    return {
+        "technique_ids": technique_ids,
+        "group_filter": group,
+        "max_hops": max_hops,
+        "techniques": techniques,
+        "links": links,
     }
 
 
@@ -132,5 +255,51 @@ def format_context(context: dict) -> str:
             f"sources: {', '.join(e['sources'])}"
         )
         lines.append(f"    evidence: {e['evidence']}")
+
+    return "\n".join(lines)
+
+
+def format_chain_context(context: dict) -> str:
+    """Renders a `get_chain_context()` dict into the plain-text facts
+    block the LLM prompt is built from - same contract as
+    `format_context()`: every field the LLM is allowed to use appears
+    here, nothing more, including an explicit "no path found" line when
+    a link's BFS came up empty (the LLM must not fill that gap from its
+    own knowledge of ATT&CK)."""
+    scope = f" (filtered to group: {context['group_filter']})" if context["group_filter"] else " (all groups)"
+    lines = [
+        f"CHAIN: {' -> '.join(context['technique_ids'])}",
+        f"Max hops searched per link: {context['max_hops']}{scope}",
+        "",
+    ]
+
+    for tech_context in context["techniques"]:
+        lines.append(format_context(tech_context))
+        lines.append("")
+
+    for link in context["links"]:
+        lines.append(f"Path {link['from']} -> {link['to']}:")
+        if link["path"] is None:
+            lines.append(
+                f"  (no semantic-edge path found within {context['max_hops']} hops"
+                + (f" for {context['group_filter']}" if context["group_filter"] else "")
+                + ")"
+            )
+        elif not link["path"]:
+            lines.append("  (same technique - no hops needed)")
+        else:
+            for hop_num, hop in enumerate(link["path"], start=1):
+                lines.append(
+                    f"  hop {hop_num}: [{hop['group_context']}] "
+                    f"{hop['from_technique']} ({hop['from_technique_name']}) "
+                    f"--{hop['edge_type']}--> "
+                    f"{hop['to_technique']} ({hop['to_technique_name']})"
+                )
+                lines.append(
+                    f"    confidence: {hop['confidence']}, sample_size: {hop['sample_size']}, "
+                    f"sources: {', '.join(hop['sources'])}"
+                )
+                lines.append(f"    evidence: {hop['evidence']}")
+        lines.append("")
 
     return "\n".join(lines)

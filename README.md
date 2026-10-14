@@ -248,15 +248,21 @@ ingestion/              reserved for a future automated CTI ingestion pipeline
 
 query/                  Graph RAG query layer
   graph_loader.py        loads the pre-built combined graph
-  retrieval.py            traverses it for one technique's structural usage
-                         + directly-connected semantic edges (pure Python, no LLM)
+  retrieval.py            get_technique_context()/format_context(): one
+                         technique's structural usage + directly-connected
+                         semantic edges (pure Python, no LLM). Plus
+                         get_chain_context()/format_chain_context(): bounded
+                         BFS multi-hop retrieval across 2+ technique IDs in
+                         order - still pure Python, no LLM (docs/decisions/008)
   llm_provider.py         vendor-agnostic LLMProvider interface (Claude/OpenAI
                          real, Kimi stubbed) + has_credentials() so the CLI can
                          degrade to facts-only instead of erroring when the
                          configured provider has no key set
   rag.py                  sends retrieved facts + question to the configured
                          provider, constrained to formatting only
-  ask.py                  CLI entry point (python -m query.ask "...")
+  ask.py                  CLI entry point (python -m query.ask "..."); routes
+                         to the chain path automatically when 2+ technique
+                         IDs are found in the question, single-hop otherwise
 
 visualize/              render_graph.py - interactive pyvis visualization of
                          the combined graph -> docs/graph_visualization.html
@@ -282,9 +288,10 @@ tests/                  test_query_layer_against_evtx.py (real atomic-evtx
                          (live adversarial LLM queries - skips without
                          credentials), plus two deterministic unit test
                          files that never skip: test_rag_guard.py (the
-                         query layer's grounding guards) and
+                         query layer's grounding guards),
                          test_fetch_test_logs_safety.py (path-traversal
-                         guard)
+                         guard), and test_chain_retrieval.py (multi-hop
+                         chain retrieval, docs/decisions/008)
 
 docs/attack-patterns/   one case file per seed technique (problem, mechanics,
                          how the graph models it, sources)
@@ -424,7 +431,8 @@ skills so none of them gets built by accident.
   documented handling the same technique pair differently. Combined
   graph: 26 nodes, 71 edges.
 - **Phase 3 - Graph RAG query layer**: deterministic single-technique/
-  one-hop retrieval (docs/decisions/003), vendor-agnostic LLM provider
+  one-hop retrieval (docs/decisions/003; extended to bounded multi-hop
+  chains in Phase 5, below), vendor-agnostic LLM provider
   abstraction (docs/decisions/004) with `ClaudeProvider` and
   `OpenAIProvider` both real; `OpenAIProvider` is live-tested end to end
   through the CLI, `ClaudeProvider` isn't yet (no Anthropic key on this
@@ -443,6 +451,16 @@ skills so none of them gets built by accident.
   `.env` baked in, `docker build`/`docker run`/`docker compose up` all
   verified for real against a running container (see "Docker
   alternative" above).
+- **Phase 5 - Multi-hop chain retrieval (2026-10-14,
+  docs/decisions/008-multi-hop-chain-retrieval.md)**: `query/retrieval.py`
+  gains `get_chain_context()`/`format_chain_context()` - given an ordered
+  chain of 2+ technique IDs, a bounded BFS (capped at 4 hops, still pure
+  Python, no LLM) finds the shortest connecting semantic-edge path
+  between each consecutive pair, or reports explicitly that none exists
+  within the cap. `query/ask.py` routes to this path automatically
+  (`python -m query.ask "T1566.001 then T1204.002 then T1059.001 for
+  APT29"`); the single-technique path is unchanged. `api/main.py`'s
+  `/query` endpoint doesn't expose this yet - see Planned.
 - **Security assessment broadened to three lenses (LLM, code,
   web/frontend)**: the web lens found and fixed two real issues in
   `visualize/render_graph.py`'s generated HTML - a tooltip escaping
@@ -474,8 +492,11 @@ skills so none of them gets built by accident.
 - Deeper sourcing for the lowest-confidence (0.65) edge tier - two of
   T1547.001's incoming edges and the T1059.001->T1105 (APT28) edge -
   if better primary reporting turns up.
-- Multi-hop / multi-entity retrieval (e.g. "compare APT29 and APT28 on
-  T1059.001") - a deliberate scope cut in docs/decisions/003, not a gap.
+- Exposing multi-hop chain retrieval (docs/decisions/008, above) through
+  `api/main.py`'s `/query` endpoint - the CLI has it, the API doesn't yet.
+- Multi-entity retrieval (e.g. "compare APT29 and APT28 on T1059.001" in
+  one call, beyond the existing `comparisons` edge attribute) - a
+  deliberate scope cut in docs/decisions/003, not a gap.
 - Extending automated test coverage beyond the EVTX cross-check to
   `graph/` and `query/rag.py`, and CI.
 - CI (`.github/workflows/test.yml`) doesn't yet build or exercise the
