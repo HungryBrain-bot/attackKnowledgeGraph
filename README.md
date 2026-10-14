@@ -274,8 +274,10 @@ visualize/              render_graph.py - interactive pyvis visualization of
 
 api/                    main.py - FastAPI wrapper around the same query layer
                          the CLI calls: POST /query (facts + LLM-formatted
-                         answer, or facts-only with no credentials), GET
-                         /health, GET /techniques
+                         answer, or facts-only with no credentials; routes
+                         to single-hop or bounded multi-hop chain retrieval
+                         the same way the CLI does), GET /health,
+                         GET /techniques
 
 Dockerfile              containerizes api/ - single-stage, python:3.13-slim;
 docker-compose.yml      data/graph_with_semantics.json is committed to the
@@ -286,12 +288,14 @@ tests/                  test_query_layer_against_evtx.py (real atomic-evtx
                          telemetry vs. the graph, no LLM call - skips without
                          fetched test logs) + test_adversarial_queries.py
                          (live adversarial LLM queries - skips without
-                         credentials), plus two deterministic unit test
+                         credentials), plus four deterministic unit test
                          files that never skip: test_rag_guard.py (the
                          query layer's grounding guards),
                          test_fetch_test_logs_safety.py (path-traversal
-                         guard), and test_chain_retrieval.py (multi-hop
-                         chain retrieval, docs/decisions/008)
+                         guard), test_chain_retrieval.py (multi-hop chain
+                         retrieval, docs/decisions/008), and test_api.py
+                         (FastAPI TestClient coverage of both /query paths
+                         and the error responses)
 
 docs/attack-patterns/   one case file per seed technique (problem, mechanics,
                          how the graph models it, sources)
@@ -459,8 +463,13 @@ skills so none of them gets built by accident.
   between each consecutive pair, or reports explicitly that none exists
   within the cap. `query/ask.py` routes to this path automatically
   (`python -m query.ask "T1566.001 then T1204.002 then T1059.001 for
-  APT29"`); the single-technique path is unchanged. `api/main.py`'s
-  `/query` endpoint doesn't expose this yet - see Planned.
+  APT29"`); the single-technique path is unchanged. **Same-day follow-up:
+  `api/main.py`'s `/query` endpoint now exposes the chain path too** -
+  `QueryResponse.technique_ids` (plural, was `technique_id`) carries a
+  chain's full ID list; this reuses the unchanged, already-guarded
+  `rag.answer()` call, so no fresh LLM-lens assessment was needed.
+  `tests/test_api.py` (new) closes a previously-noted gap - this project
+  had no committed API tests before this.
 - **Security assessment broadened to three lenses (LLM, code,
   web/frontend)**: the web lens found and fixed two real issues in
   `visualize/render_graph.py`'s generated HTML - a tooltip escaping
@@ -492,8 +501,6 @@ skills so none of them gets built by accident.
 - Deeper sourcing for the lowest-confidence (0.65) edge tier - two of
   T1547.001's incoming edges and the T1059.001->T1105 (APT28) edge -
   if better primary reporting turns up.
-- Exposing multi-hop chain retrieval (docs/decisions/008, above) through
-  `api/main.py`'s `/query` endpoint - the CLI has it, the API doesn't yet.
 - Multi-entity retrieval (e.g. "compare APT29 and APT28 on T1059.001" in
   one call, beyond the existing `comparisons` edge attribute) - a
   deliberate scope cut in docs/decisions/003, not a gap.

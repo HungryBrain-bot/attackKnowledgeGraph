@@ -1606,3 +1606,44 @@
   `query/`/`tests/` listings, Roadmap - new Phase 5 entry plus two
   Planned items: exposing the chain path through `api/main.py`, and
   multi-entity retrieval remaining a separate scope cut per ADR 003).
+
+## 2026-10-14 - api/main.py exposes the multi-hop chain path too
+
+Same-day follow-up to Phase 5 (multi-hop chain retrieval, above) - the
+CLI got chain support first, closing the gap on the REST API right
+after rather than leaving it as unbuilt follow-on work.
+
+- `api/main.py`'s `/query` now uses `query/ask.py`'s
+  `extract_technique_ids()` (plural) instead of the singular
+  `extract_technique_id()`, routing 2+ technique IDs to
+  `get_chain_context()`/`format_chain_context()` exactly like the CLI
+  does - same code path, same grounding guarantee, reached over HTTP.
+- `QueryResponse.technique_id: str` became `technique_ids: list[str]` to
+  carry a chain's full ID list. A deliberate breaking change to the
+  response shape - checked first that nothing documented (ADR 007,
+  README's curl examples) pins the old singular field name, so there's
+  no real external consumer to break.
+- Didn't re-trigger a `red-team-assessment` LLM-lens pass: this reuses
+  `rag.answer()` and its deterministic grounding guards (docs/decisions/
+  005) completely unchanged - no new prompt-construction logic, just the
+  same guarded call reached through a different entry point, same
+  reasoning CLAUDE.md already used for why the Docker/API work didn't
+  need a fresh web-lens pass.
+- Added `tests/test_api.py` (9 tests, FastAPI `TestClient`, no LLM call,
+  never skip) - this closes a real, previously-noted gap: there were no
+  committed API tests before this commit, only documented manual
+  `curl` verification. Covers `/health`, `/techniques`, single-hop
+  `/query`, chain `/query`, the no-path-found case, and the 400/404/422
+  error paths.
+- Added `httpx>=0.27` to requirements.txt (FastAPI's `TestClient`
+  dependency) - ran `pip-audit` against it per the `red-team-assessment`
+  code lens's "requirements.txt gains a dependency" trigger: no known
+  vulnerabilities.
+- Verified for real: `TestClient` calls against the live app for both
+  `/query` paths plus `/health`, confirmed response bodies match the
+  CLI's equivalent output; full suite re-run clean (32 passed, 7 skipped
+  - same skip count as before `test_api.py` was added, 9 new tests all
+  passing, nothing broken).
+- Updated docs/decisions/008, CLAUDE.md (`api/` and `query/` bullets,
+  `tests/` count), and README.md (Phase 5 Roadmap entry, repo structure's
+  `api/`/`tests/` listings, removed the now-stale Planned item for this).

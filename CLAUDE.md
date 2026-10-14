@@ -84,9 +84,15 @@ flowchart LR
   `ask.py`'s `extract_technique_ids()` (plural) now returns every
   technique ID in a question; 2+ routes to the chain path automatically,
   exactly 1 keeps the unchanged single-hop path.
-  `api/main.py` does NOT yet expose the chain path - it still resolves
-  only the first technique ID via the back-compat `extract_technique_id()`
-  wrapper; extending the API is a separate, unbuilt follow-on. **Not yet
+  **`api/main.py` now exposes the chain path too (same-day follow-up,
+  2026-10-14)**: `/query` uses `extract_technique_ids()` the same way the
+  CLI does and routes 2+ IDs to `get_chain_context()`/
+  `format_chain_context()`; `QueryResponse.technique_id` (singular)
+  became `technique_ids: list[str]` to carry a chain's full ID list -
+  a deliberate breaking response-shape change, fine since nothing
+  documented pins the old field name. Reuses `rag.py`'s unchanged
+  grounding guards, so no fresh `red-team-assessment` LLM-lens pass was
+  needed - same guarded call, just reached over HTTP. **Not yet
   surfaced here**:
   `graph/semantic_edges.py`'s `CROSS_GROUP_COMPARISONS` (2 real,
   sourced comparisons - see docs/decisions/006-cross-group-comparison.md)
@@ -118,16 +124,21 @@ flowchart LR
   this HTML file, and this script is never triggered by that skill.
 - `api/` - `main.py`, a FastAPI wrapper around the same query layer
   `query/ask.py` (CLI) already calls - `POST /query` reuses
-  `query/retrieval.py`, `query/rag.py`, and `query/llm_provider.py`
-  directly (including `has_credentials()`'s facts-only degradation),
-  plus `GET /health` (confirms the graph loaded, with real node/edge
-  counts) and `GET /techniques` (the 13 seed technique IDs). A new
-  entry point on top of existing logic, not a second implementation of
-  it - see docs/decisions/007-api-and-containerization.md for why
-  FastAPI and how request-size/error-handling basics are covered
-  (`MaxBodySizeMiddleware`, a catch-all exception handler), and
-  docs/security-assessment.md's matching dated entry for the LLM/code
-  lens pass run against it before it was called done.
+  `query/retrieval.py` (both the single-hop `get_technique_context()`/
+  `format_context()` and, since 2026-10-14, the bounded multi-hop
+  `get_chain_context()`/`format_chain_context()`, docs/decisions/008),
+  `query/rag.py`, and `query/llm_provider.py` directly (including
+  `has_credentials()`'s facts-only degradation), plus `GET /health`
+  (confirms the graph loaded, with real node/edge counts) and
+  `GET /techniques` (the 13 seed technique IDs). `QueryResponse` carries
+  `technique_ids: list[str]` (not a singular `technique_id`) so a chain
+  response can report every ID it resolved. A new entry point on top of
+  existing logic, not a second implementation of it - see
+  docs/decisions/007-api-and-containerization.md for why FastAPI and how
+  request-size/error-handling basics are covered (`MaxBodySizeMiddleware`,
+  a catch-all exception handler), and docs/security-assessment.md's
+  matching dated entry for the LLM/code lens pass run against it before
+  it was called done.
 - `Dockerfile` / `docker-compose.yml` / `.dockerignore` - containerizes
   `api/`. Single-stage (`python:3.13-slim`; no dependency in
   `requirements.txt` needs build-stage tooling the runtime stage
@@ -141,7 +152,7 @@ flowchart LR
   mapping and an optional `.env` reference for the LLM provider key -
   see docs/decisions/007 for the full reasoning, including why this
   isn't a build-vs-mount tradeoff in the usual sense.
-- `tests/` - five files, not one. `test_query_layer_against_evtx.py` was
+- `tests/` - six files, not one. `test_query_layer_against_evtx.py` was
   the project's first automated test: cross-checks real fetched
   atomic-evtx samples (see `.claude/skills/fetch-test-logs/`) against
   the graph, confirming a technique real telemetry says happened is one
@@ -161,7 +172,10 @@ flowchart LR
   2026-08-15 entry). `test_chain_retrieval.py` (8 tests, no LLM call,
   never skip) pins `get_chain_context()`/`format_chain_context()`'s
   direct-hop, multi-hop, no-path, and group-filter-unreachability
-  behavior - see docs/decisions/008.
+  behavior - see docs/decisions/008. `test_api.py` (9 tests, no LLM
+  call, never skip, via FastAPI's `TestClient`) - previously-missing
+  committed API coverage, now including both the single-hop and chain
+  `/query` paths plus the 400/404/413/422 error paths.
 - `docs/attack-patterns/` - one case file per technique (problem,
   mechanics, how the graph models it, sources) - see
   `.claude/skills/attack-pattern-doc/SKILL.md`

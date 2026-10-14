@@ -83,9 +83,8 @@ API to the chain path is a separate, unbuilt follow-on, not done here).
 ## Consequences
 - `query/retrieval.py` now exports `get_chain_context()` and
   `format_chain_context()` alongside the unchanged `get_technique_context()`/
-  `format_context()` - the single-hop path's behavior, output format,
-  and existing callers (`api/main.py`, `tests/test_adversarial_queries.py`,
-  `tests/test_query_layer_against_evtx.py`) are untouched.
+  `format_context()` - the single-hop path's behavior and output format
+  are untouched.
 - `query/ask.py` now accepts chain questions
   (`python -m query.ask "T1566.001 then T1204.002 for APT29"`) and routes
   them to the new path automatically based on how many technique IDs it
@@ -93,10 +92,22 @@ API to the chain path is a separate, unbuilt follow-on, not done here).
 - `tests/test_chain_retrieval.py` pins the new behavior deterministically
   (direct hop, multi-hop, no-path, group-filtered unreachability, the
   `ValueError` cases) - no LLM call, never skips.
-- `api/main.py`'s `/query` endpoint does not yet expose the chain path -
-  it still only extracts and resolves the first technique ID in a
-  question (via the back-compat `extract_technique_id()`). This is an
-  honest, unbuilt follow-on, not an oversight: see README's Roadmap.
+- **`api/main.py`'s `/query` endpoint now exposes the chain path too**
+  (same-day follow-up, 2026-10-14): `extract_technique_ids()` (plural)
+  replaces the single-ID extraction there as well, routing 2+ IDs to
+  `get_chain_context()`/`format_chain_context()` exactly like the CLI.
+  `QueryResponse.technique_id` (singular) became `technique_ids: list[str]`
+  to carry a chain's full ID list - a deliberate breaking change to the
+  response shape, acceptable since no documented external consumer pins
+  the old field name (see ADR 007 and README's Docker/curl examples,
+  neither of which parse response fields). This reuses `rag.answer()`
+  and its grounding guards unchanged, so it didn't need a fresh
+  `red-team-assessment` LLM-lens pass - same guarded call the CLI's
+  chain path already exercises, just reached over HTTP.
+  `tests/test_api.py` (new - closing a previously-noted gap, there were
+  no committed API tests before this) covers both paths, the no-path
+  case, and the existing 400/404/413/422 error paths via FastAPI's
+  `TestClient`, no LLM call, never skips.
 - ADR 003's single-hop design remains correct for the common case (one
   technique, "what's next/what enabled it") - this ADR extends it rather
   than replacing it.

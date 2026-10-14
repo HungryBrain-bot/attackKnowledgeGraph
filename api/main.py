@@ -3,13 +3,22 @@ FastAPI wrapper around the Graph RAG query layer (Phase 4).
 
 A new entry point on top of the same core functions query/ask.py's CLI
 already calls - query/retrieval.py's get_technique_context()/
-format_context(), query/llm_provider.py's has_credentials()/
-get_provider(), and query/rag.py's answer() - not a reimplementation of
-any of it. Entity extraction (technique ID / group name from free text)
-is imported directly from query/ask.py rather than duplicated, so the
-API and CLI are governed by the exact same "what counts as a valid
-question" logic. See docs/decisions/007-api-and-containerization.md for
-why FastAPI, and the Docker packaging decisions.
+format_context() (single-hop) and get_chain_context()/
+format_chain_context() (bounded multi-hop, docs/decisions/008), plus
+query/llm_provider.py's has_credentials()/get_provider(), and
+query/rag.py's answer() - not a reimplementation of any of it. Entity
+extraction (technique IDs / group name from free text) is imported
+directly from query/ask.py rather than duplicated, so the API and CLI
+are governed by the exact same "what counts as a valid question" logic
+and route the same way: 2+ technique IDs in the question -> chain path,
+exactly 1 -> single-hop path. See docs/decisions/007-api-and-
+containerization.md for why FastAPI, and the Docker packaging decisions.
+
+Extending to the chain path reuses `rag.answer()`/the deterministic
+grounding guards unchanged (docs/decisions/005) - no new prompt-
+construction logic, so this didn't need a fresh `red-team-assessment`
+LLM-lens pass; it's the same guarded call the CLI's chain path already
+exercises, just reached over HTTP.
 
     uvicorn api.main:app --reload
 
@@ -29,11 +38,11 @@ from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from graph.seed_config import SEED_TECHNIQUES
-from query.ask import extract_group, extract_technique_id
+from query.ask import extract_group, extract_technique_ids
 from query.graph_loader import load_graph
 from query.llm_provider import PROVIDERS, get_provider, has_credentials
 from query.rag import answer
-from query.retrieval import format_context, get_technique_context
+from query.retrieval import format_chain_context, format_context, get_chain_context, get_technique_context
 
 # Generous for a free-text question, small enough to reject an
 # oversized-body attempt before it reaches JSON parsing or the LLM
@@ -87,7 +96,13 @@ class QueryRequest(BaseModel):
         ...,
         min_length=1,
         max_length=2000,
-        description="A question mentioning an ATT&CK technique ID, e.g. 'what happens after T1059.001 for APT29?'",
+        description=(
+            "A question mentioning one or more ATT&CK technique IDs, e.g. "
+            "'what happens after T1059.001 for APT29?' (single-hop) or "
+            "'T1566.001 then T1204.002 then T1059.001 for APT29' (multi-hop "
+            "chain - 2+ technique IDs route to bounded BFS chain retrieval, "
+            "see docs/decisions/008)."
+        ),
     )
     provider: str | None = Field(
         None,
@@ -96,7 +111,9 @@ class QueryRequest(BaseModel):
 
 
 class QueryResponse(BaseModel):
-    technique_id: str
+    technique_ids: list[str] = Field(
+        description="Every technique ID found in the question, in order. Length 1 = single-hop, 2+ = chain."
+    )
     group: str | None
     facts: str
     answer: str | None
@@ -123,8 +140,8 @@ def techniques() -> dict:
 
 @app.post("/query", response_model=QueryResponse)
 def query(req: QueryRequest) -> QueryResponse:
-    technique_id = extract_technique_id(req.question)
-    if technique_id is None:
+    technique_ids = extract_technique_ids(req.question)
+    if not technique_ids:
         raise HTTPException(
             status_code=400,
             detail="Couldn't find a technique ID (e.g. T1059.001) in the question - this prototype's query layer requires one.",
@@ -132,11 +149,14 @@ def query(req: QueryRequest) -> QueryResponse:
     group = extract_group(req.question)
 
     try:
-        context = get_technique_context(_graph, technique_id, group=group)
+        if len(technique_ids) >= 2:
+            context = get_chain_context(_graph, technique_ids, group=group)
+            facts = format_chain_context(context)
+        else:
+            context = get_technique_context(_graph, technique_ids[0], group=group)
+            facts = format_context(context)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-
-    facts = format_context(context)
 
     if req.provider is not None and req.provider not in PROVIDERS:
         raise HTTPException(
@@ -146,7 +166,7 @@ def query(req: QueryRequest) -> QueryResponse:
 
     if not has_credentials(req.provider):
         return QueryResponse(
-            technique_id=technique_id,
+            technique_ids=technique_ids,
             group=group,
             facts=facts,
             answer=None,
@@ -158,4 +178,4 @@ def query(req: QueryRequest) -> QueryResponse:
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM provider call failed: {e}")
 
-    return QueryResponse(technique_id=technique_id, group=group, facts=facts, answer=answer_text)
+    return QueryResponse(technique_ids=technique_ids, group=group, facts=facts, answer=answer_text)
