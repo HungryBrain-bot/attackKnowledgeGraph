@@ -262,7 +262,9 @@ visualize/              render_graph.py - interactive pyvis visualization of
                          the combined graph -> docs/graph_visualization.html
                          (node/edge styling, per-group filter, sourced
                          tooltips); a separate consumer of query/graph_loader.py,
-                         not part of the query/RAG path
+                         not part of the query/RAG path. Assessed with the
+                         red-team-assessment skill's web/frontend lens - see
+                         docs/security-assessment.md
 
 api/                    main.py - FastAPI wrapper around the same query layer
                          the CLI calls: POST /query (facts + LLM-formatted
@@ -390,7 +392,17 @@ design doc,
 sketches `DETECTED_BY` edges and a coverage-gap view on top of the
 interactive graph visualization above - also design-only, and explicit
 that it can't be populated honestly without real, environment-specific
-detection rule data (public CTI data doesn't include that). A third,
+detection rule data (public CTI data doesn't include that). Also
+design-only and unimplemented: `docs/future/schema_reference/` holds a
+target v0.3.0 edge schema (JSON Schema + relationship-type/objective/
+environment controlled vocabularies + changelog) that today's flat
+`graph/semantic_edges.py` schema could eventually grow into - adopting
+it now would violate this project's own Code Review Standards (don't
+solve a problem that hasn't occurred yet), so it stays a reference, not
+a migration plan. One fixture bundled alongside the schema was
+deliberately excluded for citing a Mandiant report that doesn't exist,
+verified independently - see BUILD_LOG.md for that exclusion in full. A
+third,
 [`docs/future/scalability.md`](docs/future/scalability.md), lays out a
 vertical/horizontal scaling path for the API - mostly design-only the
 same way, except for one section that isn't speculative: it verifies,
@@ -431,6 +443,16 @@ skills so none of them gets built by accident.
   `.env` baked in, `docker build`/`docker run`/`docker compose up` all
   verified for real against a running container (see "Docker
   alternative" above).
+- **Security assessment broadened to three lenses (LLM, code,
+  web/frontend)**: the web lens found and fixed two real issues in
+  `visualize/render_graph.py`'s generated HTML - a tooltip escaping
+  direction bug (`<br>` rendered literally instead of as a line break)
+  and a confirmed script-injection pattern in the group-filter buttons'
+  inline `onclick` markup, fixed by switching to `data-group` +
+  `addEventListener`. The LLM lens also fixed the system-prompt
+  paraphrase leak flagged earlier (an explicit anti-disclosure rule in
+  `SYSTEM_PROMPT_TEMPLATE`, re-tested across multiple framings). Full
+  writeups in docs/security-assessment.md's 2026-08-15 entry.
 - **Scaling design + a reusable skills playbook**: `docs/future/
   scalability.md` (design-only, except one section verifying the API's
   statelessness is already true today - see "Future Direction," above)
@@ -456,3 +478,9 @@ skills so none of them gets built by accident.
   T1059.001") - a deliberate scope cut in docs/decisions/003, not a gap.
 - Extending automated test coverage beyond the EVTX cross-check to
   `graph/` and `query/rag.py`, and CI.
+- CI (`.github/workflows/test.yml`) doesn't yet build or exercise the
+  Docker image - the `docker build`/`run`/`compose` verification above
+  is manual, not automated.
+- `ClaudeProvider` re-run through `red-team-assessment`'s LLM lens once
+  a key exists - its injection/extraction resistance has only been
+  verified for `OpenAIProvider` so far.
