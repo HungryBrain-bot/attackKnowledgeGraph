@@ -162,6 +162,24 @@ cited sources. With LLM credentials configured, the `--- Answer ---`
 section forms the same way as the single-hop example above - formatting
 the facts block exactly as retrieved, nothing added.
 
+### Interactive graph visualization
+
+Real screenshots of `docs/graph_visualization.html`, captured headless
+against the actual, current `data/graph_with_semantics.json` (not a
+mockup or hand-drawn diagram) - open the file yourself locally for the
+live, hoverable version (GitHub's file viewer doesn't execute the JS).
+
+**All groups** (default view - every node/edge, confidence drives edge
+width):
+
+![Graph visualization - all groups](docs/graph_visualization_screenshot.png)
+
+**Filtered to APT29** (clicking a group button dims, not removes,
+everything not directly connected to it - confirmed live by this
+screenshot, not just asserted from reading the JS):
+
+![Graph visualization - filtered to APT29](docs/graph_visualization_screenshot_apt29.png)
+
 ## Why
 
 MITRE ATT&CK catalogs techniques as a taxonomy. It doesn't model sequence,
