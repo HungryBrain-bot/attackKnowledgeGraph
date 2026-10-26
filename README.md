@@ -5,120 +5,99 @@
 [![Tests](https://github.com/HungryBrain-bot/attackKnowledgeGraph/actions/workflows/test.yml/badge.svg)](https://github.com/HungryBrain-bot/attackKnowledgeGraph/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
 
-A knowledge-graph prototype over a scoped subset of MITRE ATT&CK, modeling
-not just *which* techniques a threat group uses, but the relationships
-between them - what tends to precede what, what enables what, and where
-detection coverage gaps exist.
+A small knowledge-graph prototype over 13 MITRE ATT&CK techniques and 3
+threat groups. It records one kind of fact that ATT&CK itself does not:
+**which technique followed which, for a specific group, in a specific
+cited report.** Each such edge carries the source URL, a short verbatim
+quote, the incident it came from, and the author's confidence. A
+retrieval layer looks those edges up deterministically, and an optional
+LLM rewrites the retrieved facts as a short answer, with a guard that
+rejects some kinds of fabricated output.
 
-**[Open the interactive graph visualization](docs/graph_visualization.html)** -
-download/clone and open locally in a browser (GitHub's file viewer doesn't
-execute the JS). Nodes colored/shaped by type and sized by degree, a
-per-group filter that highlights one group's nodes/edges while dimming (not
-removing) the rest, and hover tooltips carrying every semantic edge's real
-citation, confidence, and sample_size - regenerate with
-`python -m visualize.render_graph` whenever `data/graph_with_semantics.json`
-changes.
+It currently holds **5 cited edges** (4 for APT28, 1 for APT29), after a
+2026-10-26 audit removed 12 of the original 17 that their sources did
+not support. See [docs/edge-audit.md](docs/edge-audit.md).
 
-## How this project was built
+## What this does NOT do
 
-This repo isn't just the graph - it's built under a set of Claude Code
-skills (`.claude/skills/`) that enforce real engineering discipline:
-decisions documented as they're made, generated content kept visibly
-separate from hand-authored content, future scope deferred deliberately
-instead of silently, and no claim of "verified" without an actual check
-behind it. Those skills have been generalized into a standalone,
-domain-agnostic template set - **[`skills-playbook/`](skills-playbook/README.md)**
-- with real, attributed examples of each pattern actually catching a
-real mistake in this project, and kept from going stale by its own
-sync skill (`.claude/skills/playbook-sync/`) rather than being a
-one-time snapshot. Worth a look even if the ATT&CK subject matter isn't
-your interest.
+Read this before anything else in the repo:
+
+- **It does not say how to detect a technique**, what telemetry is
+  needed, or whether any detection covers it. There is no detection or
+  coverage data in the graph. `docs/future/detection-coverage.md` is an
+  unbuilt design note, not a feature.
+- **It does not say what mitigates a technique** or which tools or
+  malware a group uses.
+- **It does not predict what an attacker will do next.** An edge says
+  "in this one cited report, this group did A, then B". It is not a
+  probability, and 5 edges are far too few to generalise from.
+- **A multi-hop chain is not an observed intrusion** unless every hop
+  comes from the same incident. Chains never mix groups, and the facts
+  block warns when a chain joins incidents (ADR 009).
+- **The confidence numbers are one author's judgment** of how directly
+  the quote supports the edge, not a statistic.
+- **The LLM guard is not a hallucination detector.** It catches
+  specific, tested shapes of fabricated edges and attributes; it misses
+  free prose and fabricated sources. See its
+  [Known limitations](docs/decisions/005-prompt-injection-fact-separation.md#known-limitations-what-the-guard-still-does-not-catch).
+- **No live CTI ingestion, no extraction pipeline, no production use.**
+  Every edge is hand-authored. `ClaudeProvider` has never been run
+  against a live key; only `OpenAIProvider` has.
 
 ## See it run
 
-Real output from `python -m query.ask`, captured from an actual run
-against the graph (`LLM_PROVIDER=openai`; see BUILD_LOG.md's 2026-08-13
-"Query CLI end-to-end test" entry for the other two verified cases) - not
-a mockup:
+Real output from `python -m query.ask` against the current graph, with
+no LLM key configured (lines truncated with `[...]`):
 
 ```
-$ python -m query.ask "what happens after T1059.001 for APT29?"
+$ python -m query.ask "what happens after T1078 for APT28?"
 
 --- Retrieved facts (from the graph, not the LLM) ---
-TECHNIQUE: T1059.001 - PowerShell
-Tactics: execution
-Description: Adversaries may abuse PowerShell commands and scripts for
-execution. PowerShell is a powerful interactive command-line interface
-and scripting environment included in the Windows operating
-system.(Citation: TechNet PowerShell) [...]
+TECHNIQUE: T1078 - Valid Accounts
+Tactics: stealth, persistence, privilege-escalation, initial-access
+[...]
+Semantic edges (filtered to group: APT28):
+  - [APT28] T1078 --CAUSALLY_ENABLES--> T1021.001 (Remote Desktop Protocol)
+    confidence: 0.85, sample_size: 1, incident: nearest-neighbor-2022,
+    sources: Volexity Nearest Neighbor Attack Nov 2024
+    quote: "after an attacker used privileged credentials to connect to it
+    via RDP from another system within Organization B’s network" (https://www.volexity.com/[...])
+  - [APT28] T1078 --TEMPORALLY_PRECEDES--> T1003.002 (Security Account Manager)
+    confidence: 0.75, sample_size: 1, incident: nearest-neighbor-2022, [...]
+  - [APT28] T1078 --CAUSALLY_ENABLES--> T1059.001 (PowerShell)
+    confidence: 0.7, sample_size: 1, incident: gru-brute-force-campaign-2019-2021, [...]
 
-Used by (structural, from official MITRE ATT&CK data):
-  - APT29 (sources: CrowdStrike StellarParticle January 2022, ESET T3
-    Threat Report 2021, Mandiant No Easy Breach, Mandiant UNC2452 APT29
-    April 2022, Microsoft Analyzing Solorigate Dec 2020, NSA Joint
-    Advisory SVR SolarWinds April 2021, [...])
-
-Semantic edges (filtered to group: APT29):
-  - [APT29] T1059.001 --TEMPORALLY_PRECEDES--> T1078 (Valid Accounts)
-    confidence: 0.85, sample_size: 2, sources: Mandiant UNC2452 APT29
-    April 2022, NSA Joint Advisory SVR SolarWinds April 2021
-    evidence: Mandiant's UNC2452/APT29 writeup states the group was able
-    to gain Domain Administrator privileges 'less than 12 hours after
-    the initial execution of a phishing payload' [...]
-  - [APT29] T1204.002 (Malicious File) --CAUSALLY_ENABLES--> T1059.001
-    confidence: 0.8, sample_size: 3, [...]
-
---- Answer ---
-For APT29, T1059.001 (PowerShell) has been observed to TEMPORALLY_PRECEDE
-T1078 (Valid Accounts). Specifically, in the SolarWinds/SUNBURST
-intrusion, Mandiant reported that APT29 obtained Domain Administrator
-privileges in under 12 hours after initial phishing payload execution
-that involved PowerShell/Cobalt Strike loaders, linking early PowerShell
-execution to later use of privileged/valid accounts (Mandiant UNC2452
-APT29 April 2022; NSA Joint Advisory SVR SolarWinds April 2021).
+(No LLM provider credentials configured - showing retrieved facts only. [...])
 ```
 
-Every fact above the `--- Answer ---` line comes from deterministic graph
-traversal, not the LLM (see docs/decisions/003-query-layer-scope.md) -
-the retrieved-facts block is printed alongside the answer specifically so
-a reviewer never has to trust the citations blind.
+Everything above comes from graph traversal, not an LLM. With a key in
+`.env`, an `--- Answer ---` section follows, written by the LLM from
+these facts only and checked by the guard before it is returned.
 
-If the configured provider (`LLM_PROVIDER`, default `claude`) has no
-credentials set - e.g. a fresh clone with no `.env` yet - the CLI prints
-the retrieved facts block above and stops there with a one-line note,
-instead of the answer section and instead of an error: the graph half of
-this tool works with zero LLM setup.
+## Known limitations
 
-## Why
-
-MITRE ATT&CK catalogs techniques as a taxonomy. It doesn't model sequence,
-timing, prerequisites, or confidence - so knowing "APT29 uses T1059.001
-and T1003" doesn't tell a defender what to expect next, how urgently, or
-whether existing detections actually cover the path an attacker takes.
-This project explores modeling that as a graph: structural ATT&CK data as
-a base layer, hand-authored semantic edges (temporal/causal relationships,
-cited against real sources) on top, and a small retrieval layer so the
-graph can answer questions like "given this observed technique, what's
-likely next and do we have coverage."
-
-## ATT&CK Navigator vs. this project
-
-Pulled directly from `docs/attack-patterns/`'s per-technique "Present
-Problem" sections (each cited against real CTI sources - see the case
-files for full sourcing), not new claims written for this table:
-
-| Question a defender actually has | ATT&CK Navigator / static lookup | attck-graph |
-|---|---|---|
-| "APT29 opened a phishing attachment - what happens next?" | Confirms APT29 uses T1566.001. Doesn't say what follows. | For APT29, T1566.001 is reliably followed by a PowerShell-launching macro (T1204.002), not an embedded exploit or dropped EXE (confidence 0.75, sample_size 3). |
-| "We see PowerShell execution attributed to a known group - how urgent is it?" | Confirms the group uses T1059.001. PowerShell is present in most intrusions, benign and malicious alike, so this alone is close to a non-signal. | Distinguishes APT29's initial-access-adjacent execution from APT28's mid-intrusion recon off an already-compromised pivot host - different triage priorities entirely (docs/attack-patterns/T1059.001-powershell.md). |
-| "A credential compromise is suspected - what should we watch for next?" | Confirms the group uses T1078 (Valid Accounts). Valid-account activity is indistinguishable from legitimate use at the log level, so the lookup alone gives no next step. | Surfaces what tends to follow a suspected credential compromise for that specific actor, so monitoring can front-load onto the *next* step (docs/attack-patterns/T1078-valid-accounts.md). |
-| "Process discovery activity is confirmed for this actor - where are we in the chain?" | Confirms the group uses T1057. Commands like `tasklist`/`Get-Process` run constantly for benign reasons, so the raw event alone is close to undetectable as a signal. | Distinguishes early reconnaissance from an unprivileged foothold from a survey step that only happens once the attacker already has Domain Admin, per APT29's documented SolarWinds pattern (docs/attack-patterns/T1057-process-discovery.md). |
+- **Edges**: 5, from 3 reports. Lazarus Group has none. Quotes were
+  extracted with a summarising fetch tool and not yet compared character
+  by character against the sources ([docs/edge-audit.md](docs/edge-audit.md)).
+- **Guard** ([ADR 005, 2026-10-26 amendment](docs/decisions/005-prompt-injection-fact-separation.md)):
+  checks edge existence, group, confidence and sample_size against the
+  stored facts. Misses edges stated in free prose, groups named in a
+  different sentence, fabricated sources, and other attribute phrasings.
+  Fails closed: a correct refusal that repeats a fabricated edge without
+  quoting it raises an error.
+- **Chains** ([ADR 009](docs/decisions/009-single-group-chains.md)):
+  one group per path, BFS capped at 4 hops; incident labels are only as
+  good as the audit.
+- **Tests**: CI runs the deterministic tests only. The live-LLM
+  adversarial tests and the EVTX telemetry tests skip without
+  credentials or fetched logs.
+- **API**: request-size check reads `Content-Length` only, so a chunked
+  body is not limited (docs/security-assessment.md).
 
 ## Architecture
 
-Hand-authored - depicts module/call structure, not graph data, so it
-isn't touched by `graph/generate_diagrams.py` (see `.claude/skills/
-generate-diagrams/`). Update by hand when the pipeline itself changes.
+Hand-authored (module structure, not graph data); update by hand when
+the pipeline changes.
 
 ```mermaid
 flowchart LR
@@ -126,53 +105,39 @@ flowchart LR
     BG --> SE["graph/semantic_edges.py"]
     SE --> GL["query/graph_loader.py"]
     GL --> RET["query/retrieval.py"]
-    RET --> RAG["query/rag.py"]
+    RET --> RAG["query/rag.py<br/>(grounding guard)"]
     RAG --> LP["query/llm_provider.py"]
     LP --> CP["ClaudeProvider"]
     LP --> OP["OpenAIProvider"]
-    LP --> KP["KimiProvider"]
     CP --> ASK["query/ask.py<br/>(CLI)"]
     OP --> ASK
-    KP -.-> ASK
     CP --> API["api/main.py<br/>(FastAPI)"]
     OP --> API
-    KP -.-> API
     API --> DOCKER["Dockerfile /<br/>docker-compose.yml"]
     GL --> VZ["visualize/render_graph.py"]
     VZ --> HTMLOUT["docs/graph_visualization.html"]
-
-    classDef stub stroke-dasharray: 5 5,fill:#eee,color:#888;
-    class KP stub;
 ```
 
-*Dashed `KimiProvider` = stub, not yet implemented (see
-docs/decisions/004-llm-provider-abstraction.md). `visualize/render_graph.py`
-reads the same combined graph the query layer does, via
-`query/graph_loader.py`, and is a separate consumer of it - not part of the
-query/RAG path. `api/main.py` is a second entry point on top of the same
-query layer `query/ask.py` (CLI) calls - see
-docs/decisions/007-api-and-containerization.md.*
+- **Structural layer**: techniques, tactics, groups and `USES_TECHNIQUE`
+  edges, built from MITRE's official STIX bundle via `mitreattack-python`.
+- **Semantic layer**: hand-authored `TEMPORALLY_PRECEDES` /
+  `CAUSALLY_ENABLES` edges in `graph/semantic_edges.py`, each scoped to
+  one group and one incident, with source URL and quote.
+- **Retrieval** (`query/retrieval.py`): one technique's edges, or a
+  bounded BFS chain between 2+ techniques. No LLM.
+- **Answer** (`query/rag.py`): facts go in the system message, the
+  question in the user message, and the reply is checked by
+  `_check_no_ungrounded_techniques()` and `_check_no_ungrounded_edges()`
+  before it is returned.
 
-## Scope (honest version)
-
-This is a prototype covering **10-15 techniques across 2-3 threat groups**,
-not a production system:
-- Structural graph (nodes, HAS_TECHNIQUE/USES_TECHNIQUE edges): real data
-  via the official `mitreattack-python` library.
-- Semantic edges (temporal/causal relationships): hand-authored against
-  cited public CTI sources - not an automated extraction pipeline.
-- Query layer: graph traversal + LLM-formatted answer, grounded in the
-  retrieved subgraph only.
-
-See `docs/attack-patterns/` for the per-technique writeups (what the
-attack is, the gap in existing tooling, how it's modeled here, sources)
-and `docs/decisions/` for engineering decision records.
+[Interactive graph visualization](docs/graph_visualization.html) -
+open locally in a browser (GitHub does not run its JavaScript).
 
 ## Technique Relationship Graph
 
 Auto-generated from `data/graph_with_semantics.json` by
-`graph/generate_diagrams.py` - see `.claude/skills/generate-diagrams/`.
-Don't hand-edit the block below; rerun the generator instead.
+`graph/generate_diagrams.py` - don't hand-edit the block below; rerun
+the generator instead.
 
 <!-- BEGIN GENERATED: graph/generate_diagrams.py (do not hand-edit; rerun the script) -->
 ```mermaid
@@ -207,284 +172,90 @@ flowchart LR
 
 ## Repository structure
 
-Matches CLAUDE.md's Architecture section exactly - if these two ever
-describe different structures, one of them is stale.
-
 ```
-graph/                 structural graph + semantic edges + diagram generation
-  build_graph.py        real STIX data -> NetworkX MultiDiGraph (Technique/Tactic/
-                         Group nodes, HAS_TACTIC/USES_TECHNIQUE edges)
-  semantic_edges.py      hand-authored TEMPORALLY_PRECEDES/CAUSALLY_ENABLES edges,
-                         each with confidence + sample_size + a real citation
-  seed_config.py         fixed seed set: 3 groups, 13 techniques
-  generate_diagrams.py   auto-generates Mermaid diagrams from the built graph
-
-ingestion/              reserved for a future automated CTI ingestion pipeline
-                         (empty in this prototype - out of scope, see CLAUDE.md)
-
-query/                  Graph RAG query layer
-  graph_loader.py        loads the pre-built combined graph
-  retrieval.py            get_technique_context()/format_context(): one
-                         technique's structural usage + directly-connected
-                         semantic edges (pure Python, no LLM). Plus
-                         get_chain_context()/format_chain_context(): bounded
-                         BFS multi-hop retrieval across 2+ technique IDs in
-                         order - still pure Python, no LLM (docs/decisions/008)
-  llm_provider.py         vendor-agnostic LLMProvider interface (Claude/OpenAI
-                         real, Kimi stubbed) + has_credentials() so the CLI can
-                         degrade to facts-only instead of erroring when the
-                         configured provider has no key set
-  rag.py                  sends retrieved facts + question to the configured
-                         provider, constrained to formatting only
-  ask.py                  CLI entry point (python -m query.ask "..."); routes
-                         to the chain path automatically when 2+ technique
-                         IDs are found in the question, single-hop otherwise
-
-visualize/              render_graph.py - interactive pyvis visualization of
-                         the combined graph -> docs/graph_visualization.html
-                         (node/edge styling, per-group filter, sourced
-                         tooltips); a separate consumer of query/graph_loader.py,
-                         not part of the query/RAG path. Assessed with the
-                         red-team-assessment skill's web/frontend lens - see
-                         docs/security-assessment.md
-
-api/                    main.py - FastAPI wrapper around the same query layer
-                         the CLI calls: POST /query (facts + LLM-formatted
-                         answer, or facts-only with no credentials; routes
-                         to single-hop or bounded multi-hop chain retrieval
-                         the same way the CLI does), GET /health,
-                         GET /techniques
-
-Dockerfile              containerizes api/ - single-stage, python:3.13-slim;
-docker-compose.yml      data/graph_with_semantics.json is committed to the
-.dockerignore           repo so the image never fetches the raw STIX bundle
-                         or bakes in .env - see docs/decisions/007
-
-tests/                  test_query_layer_against_evtx.py (real atomic-evtx
-                         telemetry vs. the graph, no LLM call - skips without
-                         fetched test logs) + test_adversarial_queries.py
-                         (live adversarial LLM queries - skips without
-                         credentials), plus four deterministic unit test
-                         files that never skip: test_rag_guard.py (the
-                         query layer's grounding guards),
-                         test_fetch_test_logs_safety.py (path-traversal
-                         guard), test_chain_retrieval.py (multi-hop chain
-                         retrieval, docs/decisions/008), and test_api.py
-                         (FastAPI TestClient coverage of both /query paths
-                         and the error responses)
-
-docs/attack-patterns/   one case file per seed technique (problem, mechanics,
-                         how the graph models it, sources)
-docs/decisions/         ADRs for real engineering decisions
-docs/security-assessment.md   dated findings log for the red-team-assessment
-                         skill's three lenses (LLM, code, web/frontend)
-docs/future/            design-only, unbuilt: multi-agent CTI ingestion,
-                         DETECTED_BY detection-coverage edges, and
-                         vertical/horizontal scaling - see the
-                         "Future Direction" section below
-
-.claude/skills/         build-and-document, attack-pattern-doc, fetch-test-logs,
-                         generate-diagrams, red-team-assessment,
-                         scale-to-continuous-ingestion, scalability-design,
-                         playbook-sync
-
-skills-playbook/        domain-agnostic templates generalized from the skills
-                         above, for reuse in other projects - see
-                         "How this project was built" near the top of this file
-
-NOTES-private.md        gitignored, personal/product-vision notes only
+graph/
+  build_graph.py        STIX bundle -> structural MultiDiGraph
+  semantic_edges.py     the 5 audited, cited semantic edges
+  seed_config.py        fixed seed set: 3 groups, 13 techniques
+  generate_diagrams.py  Mermaid diagrams from the built graph
+query/
+  graph_loader.py       loads data/graph_with_semantics.json
+  retrieval.py          single-technique and multi-hop chain retrieval (no LLM)
+  rag.py                prompt construction + deterministic grounding guards
+  llm_provider.py       LLMProvider interface; ClaudeProvider, OpenAIProvider
+  ask.py                CLI: python -m query.ask "..."
+api/main.py             FastAPI wrapper: POST /query, GET /health, GET /techniques
+visualize/              pyvis visualization -> docs/graph_visualization.html
+tests/                  deterministic tests (guard probes, chains, API, path safety)
+                        + live-LLM and EVTX tests that skip without credentials/logs
+docs/
+  edge-audit.md         per-edge source, quote, incident, status (2026-10-26)
+  OWNERSHIP.md          closed-book explanation notes for the project owner
+  decisions/            ADRs 001-010
+  attack-patterns/      one case file per seed technique (pre-audit prose, dated notes)
+  security-assessment.md  dated red-team findings log
+  future/               design-only, unbuilt notes
+.claude/skills/         Claude Code skills used to build this repo
+skills-playbook/        generalized versions of those skills
 ```
 
 ## Quick Start
 
 ```bash
-git clone <this-repo>
-cd attck-graph
+git clone https://github.com/HungryBrain-bot/attackKnowledgeGraph.git
+cd attackKnowledgeGraph
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
-# Kali (and other externally-managed-Python distros) refuse system-wide
-# pip installs - use a project venv instead of the system python3.
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-
-# fetch the official MITRE ATT&CK STIX bundle (gitignored, ~48MB, not committed)
+# official MITRE ATT&CK STIX bundle (~48MB, gitignored)
 mkdir -p data/raw && curl -o data/raw/enterprise-attack.json \
   https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json
 
-.venv/bin/python -m graph.build_graph      # structural graph -> data/structural_graph.json
-.venv/bin/python -m graph.semantic_edges   # + semantic edges -> data/graph_with_semantics.json
+.venv/bin/python -m graph.build_graph       # -> data/structural_graph.json
+.venv/bin/python -m graph.semantic_edges    # -> data/graph_with_semantics.json
+.venv/bin/python -m pytest tests/           # deterministic tests; LLM/EVTX tests skip
 
-# run the test suite - the EVTX-cross-check tests skip (not fail) until you
-# run .claude/skills/fetch-test-logs/fetch_test_logs.py --fetch; pass count
-# depends on how many seed techniques you've fetched samples for, so no
-# fixed number is promised here - see tests/test_query_layer_against_evtx.py
-.venv/bin/python -m pytest tests/
-
-# query layer needs an LLM provider key for a formatted answer - put one
-# in .env (gitignored). Without one, the CLI below still works and prints
-# the retrieved facts, just without the LLM-formatted answer on top:
+# optional: an LLM key for a formatted answer (facts-only without one)
 echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
 # or: echo 'OPENAI_API_KEY=sk-...' > .env && echo 'LLM_PROVIDER=openai' >> .env
 
-.venv/bin/python -m query.ask "what happens after T1059.001 for APT29?"
-
-# regenerate the interactive graph visualization (docs/graph_visualization.html)
-.venv/bin/python -m visualize.render_graph
+.venv/bin/python -m query.ask "what happens after T1078 for APT28?"
+.venv/bin/python -m query.ask "T1078 then T1021.001 then T1059.001 for APT28"
 ```
 
-### Docker alternative
+After editing `graph/semantic_edges.py`, also run
+`python -m graph.generate_diagrams` and `python -m visualize.render_graph`.
 
-`data/graph_with_semantics.json` is already committed to this repo, so
-the container needs neither the 48MB raw STIX bundle nor a Python venv -
-see docs/decisions/007-api-and-containerization.md for why. This is the
-fastest path to a running query API from a fresh clone:
+### Docker
+
+The built graph JSON is committed, so the container needs neither the
+STIX bundle nor a venv (docs/decisions/007):
 
 ```bash
-git clone <this-repo>
-cd attck-graph
-
-# optional - without a key, /query still works and returns facts-only
-# (query/llm_provider.py's has_credentials() degradation, same as the CLI)
-echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
-# or: echo 'OPENAI_API_KEY=sk-...' > .env && echo 'LLM_PROVIDER=openai' >> .env
-
 docker compose up --build
-
-# in another terminal:
-curl http://localhost:8000/health
-curl http://localhost:8000/techniques
-curl -X POST http://localhost:8000/query \
-  -H "Content-Type: application/json" \
-  -d '{"question": "what happens after T1059.001 for APT29?"}'
+curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
+  -d '{"question": "what happens after T1078 for APT28?"}'
 ```
 
-Equivalent without compose: `docker build -t attck-graph-api . && docker
-run -p 8000:8000 --env-file .env attck-graph-api`. Interactive API docs
-are auto-generated at `http://localhost:8000/docs`.
+## How it was built
 
-## Future Direction
+Built with Claude Code under project skills (`.claude/skills/`) that
+require an ADR for each real decision, a dated build log, and a check
+before anything is called verified. Those rules did not stop the
+problems the 2026-10-26 review found: overstated guard claims in ADR
+005, mixed-group chains, and citations that did not support their
+edges. The fixes are in ADRs 005 (amendment), 009 and 010, and the
+build procedure now requires a quote and URL per edge
+([CLAUDE.md](CLAUDE.md), "Adding or changing an edge").
 
-Speculative, not committed - unlike the Roadmap below, nothing here is
-planned work. `graph/semantic_edges.py`'s hand-authored edges don't scale
-to continuous ingestion of daily CTI feed updates; a multi-agent
-orchestration approach (source monitoring, extraction, evidence
-grounding, confidence scoring, and conflict detection roles, gated by
-explicit validation before any agent-proposed edge is trusted at the
-same level as today's manually-cited ones) is sketched at design level
-only in [`docs/future/multi-agent-ingestion.md`](docs/future/multi-agent-ingestion.md).
-It's deliberately deferred for the same reason `ingestion/` is an empty
-placeholder today (docs/decisions/001-seed-scope.md) - see that doc for
-what would actually trigger picking it up. A related, separately-scoped
-design doc,
-[`docs/future/detection-coverage.md`](docs/future/detection-coverage.md),
-sketches `DETECTED_BY` edges and a coverage-gap view on top of the
-interactive graph visualization above - also design-only, and explicit
-that it can't be populated honestly without real, environment-specific
-detection rule data (public CTI data doesn't include that). Also
-design-only and unimplemented: `docs/future/schema_reference/` holds a
-target v0.3.0 edge schema (JSON Schema + relationship-type/objective/
-environment controlled vocabularies + changelog) that today's flat
-`graph/semantic_edges.py` schema could eventually grow into - adopting
-it now would violate this project's own Code Review Standards (don't
-solve a problem that hasn't occurred yet), so it stays a reference, not
-a migration plan. One fixture bundled alongside the schema was
-deliberately excluded for citing a Mandiant report that doesn't exist,
-verified independently - see BUILD_LOG.md for that exclusion in full. A
-third,
-[`docs/future/scalability.md`](docs/future/scalability.md), lays out a
-vertical/horizontal scaling path for the API - mostly design-only the
-same way, except for one section that isn't speculative: it verifies,
-by reading the actual code, that the API is *already* horizontally
-scalable today (stateless, read-only per-process graph load - see that
-doc's "Already true today" section for the reasoning, not just the
-claim). All three docs are gated behind their own trigger-condition
-skills so none of them gets built by accident.
+- [BUILD_LOG.md](BUILD_LOG.md) - dated, append-only log of every session
+- [docs/decisions/](docs/decisions/) - ADRs
+- [docs/security-assessment.md](docs/security-assessment.md) - red-team log
+- [skills-playbook/](skills-playbook/README.md) - the skills, generalized
 
-## Roadmap
+## Not built
 
-### Current (Phases 1-4, built)
-- **Phase 1 - Structural graph**: real MITRE ATT&CK STIX data via
-  `mitreattack-python`, 26 nodes / 54 edges.
-- **Phase 2 - Semantic edges**: 17 hand-authored, cited
-  TEMPORALLY_PRECEDES/CAUSALLY_ENABLES edges across all 13 seed
-  techniques and all 3 seed groups, plus 2 cross-group comparisons
-  (docs/decisions/006) annotating pairs of edges where two groups are
-  documented handling the same technique pair differently. Combined
-  graph: 26 nodes, 71 edges.
-- **Phase 3 - Graph RAG query layer**: deterministic single-technique/
-  one-hop retrieval (docs/decisions/003; extended to bounded multi-hop
-  chains in Phase 5, below), vendor-agnostic LLM provider
-  abstraction (docs/decisions/004) with `ClaudeProvider` and
-  `OpenAIProvider` both real; `OpenAIProvider` is live-tested end to end
-  through the CLI, `ClaudeProvider` isn't yet (no Anthropic key on this
-  dev machine - explicitly deferred, not skipped, see CLAUDE.md). Either
-  way, the CLI degrades cleanly to facts-only output instead of erroring
-  when the configured provider has no credentials - see "See it run."
-- First automated test (`tests/test_query_layer_against_evtx.py`),
-  cross-checking real Atomic Red Team-simulated telemetry against the
-  graph.
-- **Phase 4 - REST API and containerization**: `api/main.py` (FastAPI)
-  wraps the same query layer behind `POST /query`, `GET /health`,
-  `GET /techniques` (see docs/decisions/007-api-and-containerization.md),
-  assessed with the `red-team-assessment` skill's LLM and code lenses
-  before shipping (docs/security-assessment.md). `Dockerfile` +
-  `docker-compose.yml` package it - single-stage, no raw STIX bundle or
-  `.env` baked in, `docker build`/`docker run`/`docker compose up` all
-  verified for real against a running container (see "Docker
-  alternative" above).
-- **Phase 5 - Multi-hop chain retrieval (2026-10-14,
-  docs/decisions/008-multi-hop-chain-retrieval.md)**: `query/retrieval.py`
-  gains `get_chain_context()`/`format_chain_context()` - given an ordered
-  chain of 2+ technique IDs, a bounded BFS (capped at 4 hops, still pure
-  Python, no LLM) finds the shortest connecting semantic-edge path
-  between each consecutive pair, or reports explicitly that none exists
-  within the cap. `query/ask.py` routes to this path automatically
-  (`python -m query.ask "T1566.001 then T1204.002 then T1059.001 for
-  APT29"`); the single-technique path is unchanged. **Same-day follow-up:
-  `api/main.py`'s `/query` endpoint now exposes the chain path too** -
-  `QueryResponse.technique_ids` (plural, was `technique_id`) carries a
-  chain's full ID list; this reuses the unchanged, already-guarded
-  `rag.answer()` call, so no fresh LLM-lens assessment was needed.
-  `tests/test_api.py` (new) closes a previously-noted gap - this project
-  had no committed API tests before this.
-- **Security assessment broadened to three lenses (LLM, code,
-  web/frontend)**: the web lens found and fixed two real issues in
-  `visualize/render_graph.py`'s generated HTML - a tooltip escaping
-  direction bug (`<br>` rendered literally instead of as a line break)
-  and a confirmed script-injection pattern in the group-filter buttons'
-  inline `onclick` markup, fixed by switching to `data-group` +
-  `addEventListener`. The LLM lens also fixed the system-prompt
-  paraphrase leak flagged earlier (an explicit anti-disclosure rule in
-  `SYSTEM_PROMPT_TEMPLATE`, re-tested across multiple framings). Full
-  writeups in docs/security-assessment.md's 2026-08-15 entry.
-- **Scaling design + a reusable skills playbook**: `docs/future/
-  scalability.md` (design-only, except one section verifying the API's
-  statelessness is already true today - see "Future Direction," above)
-  and `skills-playbook/` (seven domain-agnostic templates generalized
-  from this project's own skills, kept in sync going forward by
-  `.claude/skills/playbook-sync/` - see "How this project was built,"
-  above).
-
-### Planned
-- Surfacing cross-group comparisons (docs/decisions/006) in the query
-  layer itself - `query/retrieval.py`/`format_context()` don't yet
-  render the new `comparisons` edge attribute into the LLM's facts
-  block; needs a `red-team-assessment` LLM-lens pass before it ships,
-  since it means a group-filtered answer can legitimately mention a
-  second group.
-- `KimiProvider` wired up for real once an API key exists - same
-  five-minute path as `OpenAIProvider` (see CLAUDE.md's "Adding an LLM
-  Provider").
-- Deeper sourcing for the lowest-confidence (0.65) edge tier - two of
-  T1547.001's incoming edges and the T1059.001->T1105 (APT28) edge -
-  if better primary reporting turns up.
-- Multi-entity retrieval (e.g. "compare APT29 and APT28 on T1059.001" in
-  one call, beyond the existing `comparisons` edge attribute) - a
-  deliberate scope cut in docs/decisions/003, not a gap.
-- Extending automated test coverage beyond the EVTX cross-check to
-  `graph/` and `query/rag.py`, and CI.
-- CI (`.github/workflows/test.yml`) doesn't yet build or exercise the
-  Docker image - the `docker build`/`run`/`compose` verification above
-  is manual, not automated.
-- `ClaudeProvider` re-run through `red-team-assessment`'s LLM lens once
-  a key exists - its injection/extraction resistance has only been
-  verified for `OpenAIProvider` so far.
+Speculative design notes live in `docs/future/` (continuous CTI
+ingestion, detection coverage, scaling). None is implemented or
+planned, and each is gated by a skill's trigger conditions. Not built
+either: a live test of `ClaudeProvider`, CI for the Docker image, and
+any edge beyond the audited five.
