@@ -35,6 +35,10 @@ Field meanings (kept deliberately literal so nothing here is a vibe):
                     together. Additional sources here were pulled
                     directly from the named publication, independent of
                     the STIX bundle.
+    incident_id   - the one operation/intrusion the edge was observed in,
+                    or None when its sources describe different
+                    operations. Multi-hop chains warn when they join
+                    edges from different incidents (docs/decisions/009).
     evidence      - what the source(s) actually say, in our own words -
                     never reproduced report text (copyright discipline
                     per the attack-pattern-doc skill)
@@ -91,6 +95,7 @@ SEMANTIC_EDGES = [
         "target": "T1204.002",
         "edge_type": "TEMPORALLY_PRECEDES",
         "group_context": "APT29",
+        "incident_id": 'apt29-dukes-phishing-multiple',
         "confidence": 0.75,
         "sample_size": 3,
         "sources": [
@@ -115,6 +120,7 @@ SEMANTIC_EDGES = [
         "target": "T1059.001",
         "edge_type": "CAUSALLY_ENABLES",
         "group_context": "APT29",
+        "incident_id": 'apt29-dukes-phishing-multiple',
         "confidence": 0.8,
         "sample_size": 3,
         "sources": [
@@ -136,6 +142,7 @@ SEMANTIC_EDGES = [
         "target": "T1078",
         "edge_type": "TEMPORALLY_PRECEDES",
         "group_context": "APT29",
+        "incident_id": 'apt29-mandiant-unc2452-2022',
         "confidence": 0.85,
         "sample_size": 2,
         "sources": [
@@ -158,6 +165,7 @@ SEMANTIC_EDGES = [
         "target": "T1074.002",
         "edge_type": "TEMPORALLY_PRECEDES",
         "group_context": "APT29",
+        "incident_id": 'solarwinds-2020',
         "confidence": 0.7,
         "sample_size": 4,
         "sources": [
@@ -181,6 +189,7 @@ SEMANTIC_EDGES = [
         "target": "T1059.001",
         "edge_type": "CAUSALLY_ENABLES",
         "group_context": "APT28",
+        "incident_id": 'nearest-neighbor-2022',
         "confidence": 0.85,
         "sample_size": 1,
         "sources": ["Volexity Nearest Neighbor Attack Nov 2024"],
@@ -201,6 +210,7 @@ SEMANTIC_EDGES = [
         "target": "T1021.001",
         "edge_type": "CAUSALLY_ENABLES",
         "group_context": "APT28",
+        "incident_id": 'nearest-neighbor-2022',
         "confidence": 0.75,
         "sample_size": 1,
         "sources": ["Volexity Nearest Neighbor Attack Nov 2024"],
@@ -219,6 +229,7 @@ SEMANTIC_EDGES = [
         "target": "T1003.002",
         "edge_type": "CAUSALLY_ENABLES",
         "group_context": "APT28",
+        "incident_id": 'nearest-neighbor-2022',
         "confidence": 0.85,
         "sample_size": 1,
         "sources": ["Volexity Nearest Neighbor Attack Nov 2024"],
@@ -242,6 +253,7 @@ SEMANTIC_EDGES = [
         "target": "T1059.001",
         "edge_type": "CAUSALLY_ENABLES",
         "group_context": "APT28",
+        "incident_id": 'gru-brute-force-2019-2021',
         "confidence": 0.75,
         "sample_size": 1,
         "sources": ["Cybersecurity Advisory GRU Brute Force Campaign July 2021"],
@@ -269,6 +281,7 @@ SEMANTIC_EDGES = [
         "target": "T1547.001",
         "edge_type": "CAUSALLY_ENABLES",
         "group_context": "APT28",
+        "incident_id": 'pawn-storm-2020',
         "confidence": 0.65,
         "sample_size": 1,
         "sources": ["TrendMicro Pawn Storm Dec 2020"],
@@ -289,6 +302,7 @@ SEMANTIC_EDGES = [
         "target": "T1105",
         "edge_type": "CAUSALLY_ENABLES",
         "group_context": "APT28",
+        "incident_id": None,
         "confidence": 0.65,
         "sample_size": 2,
         "sources": [
@@ -312,6 +326,7 @@ SEMANTIC_EDGES = [
         "target": "T1003.002",
         "edge_type": "CAUSALLY_ENABLES",
         "group_context": "APT29",
+        "incident_id": 'unc3524-2022',
         "confidence": 0.8,
         "sample_size": 1,
         "sources": ["Mandiant APT29 Eye Spy Email Nov 22"],
@@ -332,6 +347,7 @@ SEMANTIC_EDGES = [
         "target": "T1547.001",
         "edge_type": "CAUSALLY_ENABLES",
         "group_context": "APT29",
+        "incident_id": 'no-easy-breach-2015',
         "confidence": 0.65,
         "sample_size": 1,
         "sources": ["Mandiant No Easy Breach"],
@@ -352,6 +368,7 @@ SEMANTIC_EDGES = [
         "target": "T1057",
         "edge_type": "TEMPORALLY_PRECEDES",
         "group_context": "APT29",
+        "incident_id": 'solarwinds-2020',
         "confidence": 0.7,
         "sample_size": 3,
         "sources": [
@@ -375,6 +392,7 @@ SEMANTIC_EDGES = [
         "target": "T1083",
         "edge_type": "TEMPORALLY_PRECEDES",
         "group_context": "APT29",
+        "incident_id": 'solarwinds-2020',
         "confidence": 0.7,
         "sample_size": 4,
         "sources": [
@@ -397,6 +415,7 @@ SEMANTIC_EDGES = [
         "target": "T1560.001",
         "edge_type": "TEMPORALLY_PRECEDES",
         "group_context": "Lazarus Group",
+        "incident_id": None,
         "confidence": 0.75,
         "sample_size": 4,
         "sources": [
@@ -419,6 +438,7 @@ SEMANTIC_EDGES = [
         "target": "T1071.001",
         "edge_type": "CAUSALLY_ENABLES",
         "group_context": "Lazarus Group",
+        "incident_id": 'cisa-aa24-207a-2024',
         "confidence": 0.7,
         "sample_size": 1,
         "sources": ["CISA AA24-207A Aug 2024"],
@@ -435,6 +455,7 @@ SEMANTIC_EDGES = [
         "target": "T1204.002",
         "edge_type": "TEMPORALLY_PRECEDES",
         "group_context": "Lazarus Group",
+        "incident_id": 'operation-north-star-2020',
         "confidence": 0.8,
         "sample_size": 2,
         "sources": [
@@ -596,6 +617,7 @@ def add_semantic_edges(g: nx.MultiDiGraph) -> nx.MultiDiGraph:
             sample_size=e["sample_size"],
             sources=e["sources"],
             evidence=e["evidence"],
+            incident_id=e["incident_id"],
         )
     return g
 

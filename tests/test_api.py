@@ -52,7 +52,7 @@ def test_chain_query_routes_to_multi_hop_path():
 def test_chain_query_with_no_path_reports_it_in_facts_not_an_error():
     r = client.post("/query", json={"question": "T1566.001 then T1560.001 for APT29"})
     assert r.status_code == 200
-    assert "no semantic-edge path found" in r.json()["facts"]
+    assert "no single-group semantic-edge path found" in r.json()["facts"]
 
 
 def test_no_technique_id_returns_400():
