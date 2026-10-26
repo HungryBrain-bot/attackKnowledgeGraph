@@ -2,22 +2,27 @@
 
 ## Project
 
-A knowledge-graph prototype over a subset of MITRE ATT&CK: 10-15
-techniques across 2-3 threat groups, modeled as a NetworkX MultiDiGraph,
-with hand-authored semantic edges (temporal/causal relationships between
-techniques, not just "technique exists") and a small Graph RAG query
-layer on top.
+A knowledge-graph prototype over 13 MITRE ATT&CK techniques and 3
+threat groups (APT29, APT28, Lazarus Group), modeled as a NetworkX
+MultiDiGraph. On top of MITRE's structural data it records one kind of
+fact: **which technique followed which, for one group, in one cited
+report**. Each such semantic edge carries a source URL, a verbatim
+quote, an incident ID and a confidence judgment. A retrieval layer
+looks edges up deterministically; an optional LLM formats the
+retrieved facts, behind a deterministic guard.
 
-This is a scoped proof-of-concept, not a production platform. No live
-CTI ingestion, no autonomous extraction pipeline, no multi-domain
-expansion - all seed data and semantic edges are manually authored
-against real, cited sources.
+Scoped proof-of-concept, not a platform. No live CTI ingestion, no
+extraction pipeline, no detection or mitigation data. **5 semantic
+edges** exist after the 2026-10-26 audit (docs/edge-audit.md).
+
+This is a consolidation-phase project. The open work is owning and
+verifying what exists, not adding to it. Before adding an edge, data
+source, provider or feature, check that the request is explicit.
 
 ## Architecture
 
 Hand-authored pipeline diagram (update by hand when the pipeline
-changes - not touched by `graph/generate_diagrams.py`; see Diagrams
-below for the full auto-generated-vs-hand-authored split):
+changes - not touched by `graph/generate_diagrams.py`):
 
 ```mermaid
 flowchart LR
@@ -25,180 +30,68 @@ flowchart LR
     BG --> SE["graph/semantic_edges.py"]
     SE --> GL["query/graph_loader.py"]
     GL --> RET["query/retrieval.py"]
-    RET --> RAG["query/rag.py"]
+    RET --> RAG["query/rag.py<br/>(grounding guard)"]
     RAG --> LP["query/llm_provider.py"]
     LP --> CP["ClaudeProvider"]
     LP --> OP["OpenAIProvider"]
-    LP --> KP["KimiProvider"]
     CP --> ASK["query/ask.py (CLI)"]
     OP --> ASK
-    KP -.-> ASK
     CP --> API["api/main.py (FastAPI)"]
     OP --> API
-    KP -.-> API
     API --> DOCKER["Dockerfile /<br/>docker-compose.yml"]
     GL --> VZ["visualize/render_graph.py"]
     VZ --> HTMLOUT["docs/graph_visualization.html"]
-
-    classDef stub stroke-dasharray: 5 5,fill:#eee,color:#888;
-    class KP stub;
 ```
 
-- `graph/` - graph construction and all edge authoring: `build_graph.py`
-  builds structural nodes/edges (Tactic, Technique, Sub-technique, Group,
-  Software; HAS_TACTIC, USES_TECHNIQUE) from real STIX data via
-  `mitreattack-python`. `semantic_edges.py` hand-authors the semantic
-  edges (TEMPORALLY_PRECEDES, CAUSALLY_ENABLES) directly as Python data
-  in `SEMANTIC_EDGES`, layered onto the structural graph - not JSON, and
-  not routed through `ingestion/`.
-- `ingestion/` - reserved for a future automated CTI ingestion pipeline.
-  Empty in this prototype - no autonomous extraction pipeline is in
-  scope here (see Project, above); all seed data and semantic edges are
-  authored directly in `graph/` instead. The deferred design for what
-  would eventually live here - a multi-agent continuous-ingestion
-  approach - is written up, design-only and unbuilt, in
-  `docs/future/multi-agent-ingestion.md`; see
-  `.claude/skills/scale-to-continuous-ingestion/` for the explicit
-  trigger condition before anyone acts on it.
-- `query/` - Graph RAG: `graph_loader.py` loads the pre-built combined
-  graph; `retrieval.py` traverses it for one technique's structural
-  usage and directly-connected semantic edges (pure Python, no LLM);
-  `llm_provider.py` defines the vendor-agnostic `LLMProvider` interface
-  (`ClaudeProvider` and `OpenAIProvider` implemented, `KimiProvider`
-  still stubbed - see "Adding an LLM Provider" below); `rag.py` sends the
-  retrieved facts plus the question to whichever provider is configured,
-  constrained by a system prompt to formatting only - LLM does not
-  originate facts; `ask.py` is the CLI entry point
-  (`python -m query.ask "..."`). See docs/decisions/003-query-layer-
-  scope.md for why retrieval is scoped to one technique/one hop by
-  default and entity extraction is plain regex, and docs/decisions/004-
-  llm-provider-abstraction.md for the provider interface. **Multi-hop
-  chain retrieval (2026-10-14, docs/decisions/008-multi-hop-chain-
-  retrieval.md)**: `retrieval.py` now also exports `get_chain_context()`/
-  `format_chain_context()` - given 2+ technique IDs in order, each gets
-  its own one-hop context (reusing `get_technique_context()`) and each
-  consecutive pair is connected (or not) via a bounded BFS over semantic
-  edges only, capped at `MAX_CHAIN_HOPS = 4`. Still pure graph traversal,
-  no LLM, and an unreachable link is reported explicitly rather than
-  silently dropped - same grounding discipline as the single-hop path.
-  `ask.py`'s `extract_technique_ids()` (plural) now returns every
-  technique ID in a question; 2+ routes to the chain path automatically,
-  exactly 1 keeps the unchanged single-hop path.
-  **`api/main.py` now exposes the chain path too (same-day follow-up,
-  2026-10-14)**: `/query` uses `extract_technique_ids()` the same way the
-  CLI does and routes 2+ IDs to `get_chain_context()`/
-  `format_chain_context()`; `QueryResponse.technique_id` (singular)
-  became `technique_ids: list[str]` to carry a chain's full ID list -
-  a deliberate breaking response-shape change, fine since nothing
-  documented pins the old field name. Reuses `rag.py`'s unchanged
-  grounding guards, so no fresh `red-team-assessment` LLM-lens pass was
-  needed - same guarded call, just reached over HTTP. **Not yet
-  surfaced here**:
-  `graph/semantic_edges.py`'s `CROSS_GROUP_COMPARISONS` (2 real,
-  sourced comparisons - see docs/decisions/006-cross-group-comparison.md)
-  are attached to their edges in the graph but `retrieval.py`/
-  `format_context()` don't read the `comparisons` attribute, so no
-  query answer can yet mention a second group's handling of the same
-  technique pair. Unbuilt follow-on, not a gap in this pass - see
-  docs/decisions/006 and the Current status entry below for why
-  (needs a `red-team-assessment` LLM-lens pass first, since it changes
-  a group-filtered answer's scope).
-- `visualize/` - `render_graph.py` builds an interactive pyvis
-  visualization from the same combined graph `query/graph_loader.py`
-  loads (a separate consumer of it, not part of the query/RAG path) -
-  nodes colored/shaped by type and sized by degree, a per-group filter
-  that dims (not removes) everything not directly connected to the
-  selected group, structural vs. semantic edge styling (semantic edge
-  confidence drives line width/opacity), and hover tooltips carrying
-  every semantic edge's real citation/confidence/sample_size. Regenerate
-  with `python -m visualize.render_graph` whenever
-  `data/graph_with_semantics.json` changes; writes
-  `docs/graph_visualization.html`, a single self-contained file (vis-
-  network inlined, no external JS fetch to draw the graph) linked near
-  the top of README. Same idempotency guarantee as the `generate-
-  diagrams` skill's Mermaid output (sorted traversal, no timestamps/
-  random IDs, byte-identical on a rerun with unchanged data) - verified
-  for real by running it twice and diffing - but this is a separate,
-  unrelated generator: `graph/generate_diagrams.py` only touches Mermaid
-  diagrams inside `GENERATED` markers in existing `.md` files, never
-  this HTML file, and this script is never triggered by that skill.
-- `api/` - `main.py`, a FastAPI wrapper around the same query layer
-  `query/ask.py` (CLI) already calls - `POST /query` reuses
-  `query/retrieval.py` (both the single-hop `get_technique_context()`/
-  `format_context()` and, since 2026-10-14, the bounded multi-hop
-  `get_chain_context()`/`format_chain_context()`, docs/decisions/008),
-  `query/rag.py`, and `query/llm_provider.py` directly (including
-  `has_credentials()`'s facts-only degradation), plus `GET /health`
-  (confirms the graph loaded, with real node/edge counts) and
-  `GET /techniques` (the 13 seed technique IDs). `QueryResponse` carries
-  `technique_ids: list[str]` (not a singular `technique_id`) so a chain
-  response can report every ID it resolved. A new entry point on top of
-  existing logic, not a second implementation of it - see
-  docs/decisions/007-api-and-containerization.md for why FastAPI and how
-  request-size/error-handling basics are covered (`MaxBodySizeMiddleware`,
-  a catch-all exception handler), and docs/security-assessment.md's
-  matching dated entry for the LLM/code lens pass run against it before
-  it was called done.
-- `Dockerfile` / `docker-compose.yml` / `.dockerignore` - containerizes
-  `api/`. Single-stage (`python:3.13-slim`; no dependency in
-  `requirements.txt` needs build-stage tooling the runtime stage
-  doesn't). `data/graph_with_semantics.json` is a committed, tracked
-  file in this repo, so the image is just `COPY`'d it like any other
-  source file - the container never fetches the 48MB raw STIX bundle or
-  runs `graph/build_graph.py`/`graph/semantic_edges.py` at build time,
-  and `.dockerignore` excludes `data/raw/`, `data/test_logs/`, and
-  `.env` so neither the raw bundle nor a secret can end up in the image
-  by accident. `docker-compose.yml` wraps the one service with a port
-  mapping and an optional `.env` reference for the LLM provider key -
-  see docs/decisions/007 for the full reasoning, including why this
-  isn't a build-vs-mount tradeoff in the usual sense.
-- `tests/` - six files, not one. `test_query_layer_against_evtx.py` was
-  the project's first automated test: cross-checks real fetched
-  atomic-evtx samples (see `.claude/skills/fetch-test-logs/`) against
-  the graph, confirming a technique real telemetry says happened is one
-  our graph actually has structural + semantic content for. Pure
-  `query/retrieval.py` - no LLM call, deterministic, free. Skips (not
-  fails) if `data/test_logs/` hasn't been fetched yet - see `pytest`
-  under Current status. `test_adversarial_queries.py` calls the real
-  query pipeline end-to-end (no mocking) with adversarial inputs - see
-  `.claude/skills/red-team-assessment/`. `test_rag_guard.py` (5 tests,
-  no LLM call, never skip) pins `query/rag.py`'s two deterministic
-  guards - `_check_no_ungrounded_techniques()` and
-  `_check_no_ungrounded_edges()` - including the quoted-rejection
-  non-regression case; see docs/decisions/005. `test_fetch_test_logs_
-  safety.py` pins the path-traversal fix in
-  `.claude/skills/fetch-test-logs/fetch_test_logs.py` found by the code
-  lens of `red-team-assessment` (see docs/security-assessment.md's
-  2026-08-15 entry). `test_chain_retrieval.py` (8 tests, no LLM call,
-  never skip) pins `get_chain_context()`/`format_chain_context()`'s
-  direct-hop, multi-hop, no-path, and group-filter-unreachability
-  behavior - see docs/decisions/008. `test_api.py` (9 tests, no LLM
-  call, never skip, via FastAPI's `TestClient`) - previously-missing
-  committed API coverage, now including both the single-hop and chain
-  `/query` paths plus the 400/404/413/422 error paths.
-- `docs/attack-patterns/` - one case file per technique (problem,
-  mechanics, how the graph models it, sources) - see
-  `.claude/skills/attack-pattern-doc/SKILL.md`
-- `docs/decisions/` - ADRs for real engineering decisions - see
-  `.claude/skills/build-and-document/SKILL.md`
-- `docs/security-assessment.md` - append-only, dated findings log across
-  all three of the `red-team-assessment` skill's lenses (LLM, code,
-  web/frontend - renamed and broadened 2026-08-15 from
-  `ai-security-assessment`, LLM-only) - see
-  `.claude/skills/red-team-assessment/SKILL.md`
-- `skills-playbook/` - domain-agnostic templates generalized from this
-  project's own `.claude/skills/`, for reuse in other projects. Leads
-  with philosophy (skills as quality disciplines; separate generated
-  from hand-authored content; document decisions when they're made;
-  defer scope with a written trigger; never claim something's verified
-  without checking) backed by real, attributed examples from this
-  project's own BUILD_LOG.md - not generic advice. See
-  `skills-playbook/README.md` and the root README's "How this project
-  was built" section (near the top, since it's meant to be
-  discoverable). Kept in sync going forward by
-  `.claude/skills/playbook-sync/`, below.
-- `NOTES-private.md` - gitignored, personal/product-vision notes only.
-  Never referenced by anything that gets committed.
+- `graph/build_graph.py` - structural nodes/edges (Technique, Tactic,
+  Group; HAS_TACTIC, USES_TECHNIQUE) from the official STIX bundle via
+  `mitreattack-python`. 26 nodes, 54 edges.
+- `graph/semantic_edges.py` - `SEMANTIC_EDGES`, the hand-authored
+  TEMPORALLY_PRECEDES / CAUSALLY_ENABLES edges, as Python data. Field
+  definitions are in its module docstring. Output:
+  `data/graph_with_semantics.json`, 26 nodes, 59 edges (54 structural,
+  4 CAUSALLY_ENABLES, 1 TEMPORALLY_PRECEDES). Committed, so the API and
+  Docker image never need the STIX bundle.
+- `graph/seed_config.py` - the fixed seed set (docs/decisions/001).
+- `query/retrieval.py` - `get_technique_context()` / `format_context()`
+  for one technique's structural usage and directly connected semantic
+  edges; `get_chain_context()` / `format_chain_context()` for 2+
+  techniques in order, via bounded BFS (max 4 hops). **Each chain path
+  uses one group's edges only**; unfiltered queries return one path per
+  group side by side, and a path whose hops come from different
+  incidents is flagged in the facts block (docs/decisions/008, 009).
+  Pure Python, no LLM. The facts block prints each edge's group,
+  confidence, sample_size, incident, quote and URL.
+- `query/rag.py` - FACTS go in the system message, the question in the
+  user message (docs/decisions/005). Every reply passes two
+  deterministic guards before it is returned, or `answer()` raises:
+  `_check_no_ungrounded_techniques()` (every technique ID in the reply
+  appears in FACTS) and `_check_no_ungrounded_edges()` (every edge the
+  reply asserts exists in FACTS, under a group FACTS records for it,
+  with any stated confidence/sample_size matching the stored value).
+  What it misses is in ADR 005's 2026-10-26 Known limitations.
+- `query/llm_provider.py` - `LLMProvider` interface (one method,
+  `generate()`); `ClaudeProvider` (implemented, never live-tested here)
+  and `OpenAIProvider` (live-tested). `has_credentials()` lets the CLI
+  and API degrade to facts-only when no key is set.
+- `query/ask.py` - CLI, `python -m query.ask "..."`. Technique IDs and
+  group names are extracted with regex, not an LLM (docs/decisions/003).
+- `api/main.py` - FastAPI wrapper over the same functions: `POST /query`,
+  `GET /health`, `GET /techniques` (docs/decisions/007).
+- `visualize/render_graph.py` - pyvis HTML of the combined graph.
+- `tests/` - see Testing below.
+- `docs/edge-audit.md` - per-edge source, quote, incident ID and
+  status (VERIFIED / REMOVED) from the 2026-10-26 audit.
+- `docs/OWNERSHIP.md` - the owner's closed-book explanation notes.
+- `docs/decisions/` - ADRs 001-010. Amended ADRs keep their original
+  text and add a dated amendment; they are not rewritten.
+- `docs/attack-patterns/` - one case file per seed technique. Their
+  prose predates the audit; each starts with a dated audit note listing
+  which of its edges were kept or removed.
+- `docs/security-assessment.md` - append-only, dated red-team log.
+- `docs/future/` - design-only notes, unbuilt and not planned.
+- `ingestion/` - does not exist; no extraction pipeline is in scope.
+- `NOTES-private.md` - gitignored personal notes; never referenced.
 
 ### Diagrams: auto-generated vs. hand-authored
 
@@ -219,13 +112,65 @@ Two categories, unambiguous by construction (see
 
 ## Conventions
 
-- Every semantic edge carries confidence score + sample_size + a real
-  citation, or is explicitly labeled an estimate. No invented data.
-- Structural data (nodes, HAS_TECHNIQUE/USES_TECHNIQUE edges) comes from
-  the official `mitreattack-python` library - real, not synthetic.
-- Semantic edges (Phase 2 schema) are hand-authored for the prototype,
-  not auto-extracted. This is a deliberate scope decision - see
-  docs/decisions/002-semantic-edge-schema.md.
+- **Every semantic edge has a fetchable `source_url`, a `source_date`,
+  a verbatim `quote` (under 25 words) that narrates that specific order
+  or dependency for that group, and an `incident_id`.** Co-citation
+  (two techniques named in the same report) is not evidence of order.
+  An edge that is true by definition (e.g. attachment delivered, then
+  opened) is not added. No invented data.
+- `confidence` is the author's judgment of how directly the quote
+  supports the edge, explained in `evidence`. `sample_size` counts only
+  sources that narrate the claim themselves.
+- Structural data comes from `mitreattack-python`, never authored.
+- A guard or test claim describes exactly what is tested. Never write
+  that a guard "closes" a class of attack; list what it misses.
+- ADRs and BUILD_LOG.md are append-only records. Correct them with a
+  dated amendment, never a silent edit.
+
+## Adding or changing an edge
+
+1. Fetch the primary source. If it cannot be fetched, the edge cannot
+   be added.
+2. Find the sentence that narrates A-then-B (or A-enables-B) for this
+   group in one operation. Copy it verbatim, under 25 words, into
+   `quote`, with `source_url`, `source_date` and `incident_id`.
+3. Check the group: the source must attribute the activity to the seed
+   group itself, as MITRE ATT&CK names it (e.g. Andariel is not
+   Lazarus Group). Check the technique: the quoted behavior must be
+   that technique ID, not a neighbor (e.g. exfiltration to cloud
+   storage is T1567, not T1071.001).
+4. Write `evidence` in your own words, saying what is inferred rather
+   than stated. Set `confidence` accordingly.
+5. Add or update the row in `docs/edge-audit.md`.
+6. Run `python -m graph.semantic_edges`, `python -m graph.generate_diagrams`,
+   `python -m visualize.render_graph`, then the full test suite.
+7. Opus-tier review (see Model Usage) for the confidence call and any
+   conflicting sources.
+
+## Testing
+
+Run `python -m pytest tests/` from the repo root before every commit.
+CI (`.github/workflows/test.yml`) rebuilds both graph JSON files from
+the STIX bundle and runs the same suite on every push and PR to `main`.
+
+- `test_rag_guard.py` - the guards, deterministic. Includes the four
+  2026-10-26 review probes (fabricated confidence, wrong group, passive
+  voice, cue-excused edge) through the real `answer()` with a stub
+  provider, plus false-positive checks (every real FACTS block passes
+  its own guard). To harden the guard: add the probe as a failing test
+  first, then fix, then update ADR 005's Known limitations.
+- `test_chain_retrieval.py` - chains on the real graph, plus a small
+  synthetic fixture graph for behavior 5 edges cannot exercise
+  (cross-group stitching, two groups on one pair, cross-incident paths).
+- `test_api.py` - FastAPI `TestClient`, no LLM.
+- `test_fetch_test_logs_safety.py` - path-traversal guard in the
+  fetch-test-logs skill script.
+- `test_adversarial_queries.py` - live LLM, skips without a key.
+- `test_query_layer_against_evtx.py` - real atomic-evtx samples, skips
+  until `.claude/skills/fetch-test-logs/fetch_test_logs.py --fetch` is run.
+
+Last full run (2026-10-26): 45 passed, 7 skipped (the live-LLM and
+EVTX files), 0 failed.
 
 ## Code Review Standards
 
@@ -287,500 +232,51 @@ model for everything.
 
 ## Adding an LLM Provider
 
-The query layer's LLM call is behind a vendor-agnostic interface
-(`query/llm_provider.py`, see docs/decisions/004-llm-provider-
-abstraction.md) specifically so a new provider is a five-minute addition,
-not a rewrite. To add one:
+1. Subclass `LLMProvider` in `query/llm_provider.py` and implement
+   `generate(self, prompt, *, system=None) -> str`. Raise on failure;
+   never return a placeholder.
+2. Register it in `PROVIDERS` and its key env var in
+   `CREDENTIAL_ENV_VARS`.
+3. Run the red-team-assessment skill's LLM lens against it before
+   calling it done: guard behavior is tested deterministically, but
+   injection resistance is a property of the model.
 
-1. Subclass `LLMProvider` and implement `generate(self, prompt, *,
-   system=None) -> str`. Raise on failure - never return a placeholder
-   or fabricated string.
-2. Add one line to the `PROVIDERS` dict in `query/llm_provider.py`
-   mapping a short name (e.g. `"openai"`) to the class.
-3. That's it - `query/rag.py` and `query/ask.py` need no changes.
-   Selecting the provider is a config change: set `LLM_PROVIDER=<name>`
-   in `.env`, or pass `provider=YourProvider()` directly to
-   `rag.answer()`.
-
-`OpenAIProvider` is implemented for real (Responses API, model default
-`gpt-5.1`, override via `OPENAI_MODEL`) now that an `OPENAI_API_KEY` is
-configured. `KimiProvider` still exists as a stub (implements the
-interface, `generate()` raises `NotImplementedError` naming exactly
-what's missing) - wiring it up for real is steps 1-2 above once a key
-exists, not new design work. Set `LLM_PROVIDER=openai` in `.env` to make
-OpenAI the default instead of Claude.
+Do not register a stub that can only raise (the KimiProvider stub was
+removed on 2026-10-26, docs/decisions/004 amendment).
 
 ## Current status
 
-Phase: Query layer built (Phase 3 of README's scope), on top of the
-Phase 1 structural graph and Phase 2 semantic edges.
-
-- `data/raw/enterprise-attack.json` - official MITRE ATT&CK STIX bundle
-  (not committed - gitignored, ~48MB). Regenerate with:
-  ```
-  mkdir -p data/raw && curl -o data/raw/enterprise-attack.json \
-    https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json
-  ```
-  This is the same URL `mitreattack-python` itself downloads from
-  (verified against the installed library's source, not assumed). Also
-  in README.md's Setup section, since a fresh clone needs this before
-  `graph/build_graph.py` can run.
-- `graph/seed_config.py` - fixed seed set: 3 groups (APT29, APT28,
-  Lazarus Group), 13 techniques spanning a full kill chain. See
-  docs/decisions/001-seed-scope.md for why these specific groups/
-  techniques.
-- `graph/build_graph.py` - builds a NetworkX MultiDiGraph from real
-  STIX data: Technique/Tactic/Group nodes, HAS_TACTIC/USES_TECHNIQUE
-  structural edges. Verified output: 26 nodes, 54 edges.
-  `data/structural_graph.json` is its serialized output (node_link
-  format) - left untouched by Phase 2, see docs/decisions/002.
-- `graph/semantic_edges.py` - adds 17 hand-authored, group-scoped
-  TEMPORALLY_PRECEDES/CAUSALLY_ENABLES edges (APT29, APT28, and Lazarus
-  Group behavior) on top of the structural graph, each with a real
-  citation, confidence score, and sample_size. All 13 seed techniques
-  now have at least one semantic edge. See
-  docs/decisions/002-semantic-edge-schema.md for the schema decisions
-  (group-scoped, not universal; literal confidence/sample_size
-  definitions) and the module's own docstring for full field docs.
-  Combined output: `data/graph_with_semantics.json`, 26 nodes, 71 edges
-  (37 USES_TECHNIQUE, 17 HAS_TACTIC, 10 CAUSALLY_ENABLES,
-  7 TEMPORALLY_PRECEDES). **Cross-group comparisons (2026-08-14,
-  closing Phase 2's "unbuilt" note - see docs/decisions/006-cross-group-
-  comparison.md)**: `CROSS_GROUP_COMPARISONS`, a separate module-level
-  list of 2 real, sourced comparisons where two groups are documented
-  handling the same technique pair differently - `cmp-001`
-  ({T1059.001, T1078}, APT29 vs. APT28, opposite direction) and
-  `cmp-002` (T1566.001→T1204.002, APT29 vs. Lazarus Group, same
-  direction but different payload-staging mechanism). Each is attached
-  as a `comparisons` attribute onto its two constituent edges by
-  `add_cross_group_comparisons()` (not a new edge type - see the ADR
-  for why). `cmp-002` required adding one new Lazarus Group edge
-  (T1566.001→T1204.002) that didn't exist before. Verifying `cmp-001`
-  also surfaced that the existing APT28 `T1078→T1059.001` edge was
-  grounded in the wrong sentence of its source advisory (attributing
-  PowerShell to what the advisory actually describes as Exchange CVE
-  exploitation); re-grounded on the advisory's real PowerShell fact and
-  its confidence raised 0.65→0.75. `query/retrieval.py` and
-  `format_context()` do not yet surface the `comparisons` attribute in
-  query answers - that's future query-layer work (see README's Roadmap)
-  and would need a `red-team-assessment` LLM-lens pass first, since it
-  means a group-filtered answer can legitimately mention a second group.
-- `docs/attack-patterns/` - 13 case files, one per seed technique
-  (T1566.001, T1204.002, T1059.001, T1078, T1083, T1021.001, T1560.001,
-  T1074.002, T1071.001, T1003.002, T1057, T1105, T1547.001).
-- `query/` - Graph RAG query layer. `retrieval.py` + `format_context()`
-  verified end-to-end against the real graph (technique-only and
-  technique+group filtered, plus the not-in-graph error case).
-  `llm_provider.py` defines the `LLMProvider` interface; `ClaudeProvider`
-  (`claude-opus-5` via the Anthropic SDK) and `OpenAIProvider`
-  (`gpt-5.1` via the OpenAI SDK's Responses API, `.responses.create` /
-  `.output_text`) are both real implementations now, `KimiProvider` is
-  still a stub (see "Adding an LLM Provider" above). Both providers read
-  their API key from `python-dotenv`-loaded `.env` (gitignored -
-  `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`). `rag.py` system-prompts
-  whichever provider is configured (default: Claude, via `LLM_PROVIDER`)
-  to answer only from the retrieved facts block and cite sources.
-  **`OpenAIProvider` is live-tested and verified**: a direct
-  `generate()` call and a full `rag.answer()` call with real T1059.001/
-  APT29 facts both returned correct, correctly-cited answers. **Claude
-  is still not live-tested - explicitly deferred, not skipped or dropped:
-  a missing `ANTHROPIC_API_KEY` is the only blocker, everything else is
-  already built and ready.** No `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN`
-  env vars are set on this machine, no `ant auth` profile (`ant` here
-  resolves to Apache Ant, not the Anthropic CLI). Previously, this meant
-  `python -m query.ask` (which defaults to `LLM_PROVIDER=claude`) printed
-  the retrieved facts followed by a raw Python traceback from the SDK's
-  "could not resolve authentication method" error - a real UX bug (fixed
-  2026-08-15 on explicit request, not just an accepted rough edge): `query
-  /llm_provider.py`'s `has_credentials()` now checks, without a network
-  call, whether the configured provider's env var is actually set;
-  `query/ask.py` calls it before ever attempting the LLM call and, if
-  it's false, prints the facts plus a one-line note and returns cleanly
-  (exit 0) instead of calling `answer()` at all. This only changes the
-  CLI's degradation behavior - `rag.answer()`/`generate()` still raise on
-  a real failure exactly as before, per this module's "raise, don't
-  fabricate" contract; the CLI now avoids attempting a call it already
-  knows will fail, rather than catching and hiding the resulting error.
-  Verified both paths for real: no credentials for the active provider
-  (`LLM_PROVIDER` unset, defaults to Claude, no Anthropic key) now prints
-  facts-only with no traceback and exit code 0; `LLM_PROVIDER=openai`
-  (which does have a key configured) still prints the full cited answer
-  as before. `ClaudeProvider` itself, the CLI
-  (`python -m query.ask`), and the exact test cases to run are all
-  already in place - the moment a key exists, the full sequence is:
-  (1) add `ANTHROPIC_API_KEY=sk-ant-...` to `.env`; (2) re-run the same
-  three cases already verified against `OpenAIProvider` (see BUILD_LOG's
-  2026-08-13 "Query CLI end-to-end test" entry) - `"what happens after
-  T1059.001 for APT29?"`, `"what did Lazarus Group do with T1560.001?"`,
-  and `"what happens after phishing?"` (the no-technique-ID error path,
-  which needs no LLM call at all and should behave identically
-  regardless of provider); (3) compare Claude's answers against the
-  already-recorded OpenAI answers for the same two real questions - not
-  just "did it not crash," but whether the two providers' formatting-
-  only answers actually agree on the same underlying facts. No new test
-  design work is needed, just execution once credentials exist.
-  `OpenAIProvider` was implemented by
-  installing `openai` (v3.0.0) and reading its actual source rather than
-  from training-data memory of an older SDK shape - see
-  docs/decisions/004-llm-provider-abstraction.md's 2026-08-13 update for
-  what that involved, including why the model default is `gpt-5.1` and
-  not one of the newer, undocumented `gpt-5.6-*` variants. `rag.py`'s
-  prompt structure changed after a real security finding (see below):
-  the FACTS block is now sent as part of the system message, not
-  concatenated with the question into one user-turn string, and
-  `answer()` runs a deterministic `_check_no_ungrounded_techniques()`
-  guard on every response before returning it - see
-  docs/decisions/005-prompt-injection-fact-separation.md.
-- `.claude/skills/red-team-assessment/` (renamed and broadened
-  2026-08-15 from `ai-security-assessment` into three lenses - LLM, code,
-  web/frontend - see that file and docs/security-assessment.md's
-  2026-08-15 entry for the broadening itself and its first code/web
-  findings, summarized further down in this same bullet) +
-  `tests/test_adversarial_queries.py` + `docs/security-assessment.md` -
-  adversarial testing for the query layer's prompt-injection surface
-  (OWASP LLM01/LLM09, primarily - this is the LLM lens specifically), run
-  for real against the live pipeline, no mocking. **First pass complete
-  and a real finding fixed**: a
-  fact-injection attempt got a fabricated technique/edge/citation
-  (`T1553.002`, which exists nowhere in this project's graph) cited back
-  in the answer as if it were real retrieved data - see
-  docs/security-assessment.md's 2026-08-13 entry for the full transcript
-  and the Opus-reviewed judgment call, and docs/decisions/005 for the
-  fix (prompt-structure separation + the deterministic guard above). The
-  other two cases in the same pass (system-prompt override, system-
-  prompt extraction) held, with extraction logged as a held-but-caveated
-  finding (verbatim reproduction refused, a full paraphrase leaked
-  before the fix - see the entry for detail). **Second pass (2026-08-14)
-  closes the first pass's other open item, then fixes it same day**:
-  three live attempts to get fabricated confidence/sample_size/source/
-  edge data attached to real, already-grounded technique IDs past the
-  deterministic guard - all three were resisted by the model
-  (Opus-reviewed), but none were caught by `_check_no_ungrounded_
-  techniques()` itself, since that guard checks technique-ID presence
-  only, never edge existence. Logged as Finding 4, then fixed same
-  session on explicit request: a second guard, `_check_no_ungrounded_
-  edges()`, now checks that a cited edge (not just its two endpoint
-  IDs) actually exists in the facts block, while specifically not
-  flagging a correct refusal that quotes a fabricated edge back
-  verbatim while declining it - see docs/decisions/005's 2026-08-14
-  update for the full design (including the quoted-rejection
-  false-positive problem it had to solve) and docs/security-
-  assessment.md's Finding 4 for the live re-verification.
-  `tests/test_rag_guard.py` (5 tests, no LLM call, never skip) pins the
-  first guard's intentionally narrow scope, the second guard's catch,
-  and its quoted-rejection non-regression case. Residual, honestly
-  documented limit: the new guard only catches fabrications phrased
-  with a technique ID, an edge-type keyword, and a second technique ID
-  close together - unstructured prose asserting the same fabrication is
-  caught by neither guard. `ClaudeProvider` still hasn't been run
-  through this assessment (no Anthropic key on this machine, same gap
-  as its general live-testing status above). **Skill broadened
-  2026-08-15, code and web/frontend lenses run for real for the first
-  time same day**: code lens found and fixed a real (low-severity, not
-  currently reachable) path-traversal gap in `.claude/skills/fetch-test-
-  logs/fetch_test_logs.py` - a GitHub API-reported filename was joined
-  onto a local path with no validation - and found no secrets, no unsafe
-  eval/exec/pickle/subprocess/SQL anywhere in the repo, and zero known
-  vulnerabilities via a real `pip-audit` run (v2.10.1, 80 resolved
-  dependencies). Web lens found and fixed two real issues in
-  `visualize/render_graph.py`'s generated HTML: the tooltip `<br>` bug
-  (see that bullet above - re-diagnosed here as a web-security finding,
-  not just a display bug, since getting the escaping direction backwards
-  is exactly this lens's concern), and a confirmed - though not
-  currently reachable - script-injection pattern in the group-filter
-  buttons' `onclick="applyGroupFilter('...')"` markup, where
-  `html.escape()` was insufficient because an inline event-handler
-  attribute is a nested JS-string context; fixed by removing inline
-  `onclick` entirely in favor of `data-group` + a real
-  `addEventListener`. Full writeups, including the working exploit proof
-  for the `onclick` finding, in docs/security-assessment.md's 2026-08-15
-  entry.
-- `docs/future/multi-agent-ingestion.md` + `.claude/skills/scale-to-
-  continuous-ingestion/` - **design-only, unbuilt, dated 2026-08-13**.
-  Sketches a multi-agent orchestration approach for replacing
-  `graph/semantic_edges.py`'s hand-authored edges with continuous CTI
-  ingestion (source monitoring, extraction, evidence grounding,
-  confidence scoring, conflict detection roles; an explicit validation
-  gate proposed before any agent-proposed edge is trusted at today's
-  level). Nothing here is implemented and `ingestion/` remains empty -
-  the skill's own trigger condition (an explicit real decision to
-  pursue this, not routine build sessions) is the only thing that
-  changes that. Also linked from README's new "Future Direction"
-  section, explicitly separated from the "Roadmap" section so it can't
-  be mistaken for committed work. `docs/future/schema_reference/` -
-  **also design-only, unimplemented** - holds a target v0.3.0 edge
-  schema (JSON Schema + relationship-type/objective/environment
-  controlled vocabularies + changelog) that today's actual
-  `graph/semantic_edges.py` flat schema could eventually grow into;
-  summarized in multi-agent-ingestion.md's "Schema design reference"
-  section, which is explicit that adopting it now would violate this
-  project's own Code Review Standards. One fixture file supplied
-  alongside the schema (a populated example edge) was deliberately
-  excluded - it cited a Mandiant report that doesn't exist, verified
-  independently, not just taken on the word it was given - see
-  BUILD_LOG.md's entry for this session for the exclusion reasoning in
-  full.
-- `docs/future/detection-coverage.md` - **also design-only, unbuilt,
-  dated 2026-08-15**. Works out what actually using
-  `relationship_types.json`'s already-defined but unused `DETECTED_BY`
-  relationship type would look like: a new `Detection` node type, a
-  `DETECTED_BY` edge carrying `coverage_state` (`FULL`/`PARTIAL`/`WEAK`/
-  `NONE`/`UNKNOWN`), `conditions`, and a real citation, and a coverage-
-  gap view (which techniques lack `FULL` coverage) layered onto
-  `visualize/render_graph.py`'s node styling and dim-not-remove filter
-  pattern. Explicit that none of it can be populated honestly today:
-  public ATT&CK/CTI data describes adversary behavior, not what a real,
-  specific, deployed detection stack actually catches - that fact only
-  exists inside a real environment, so **no synthetic/example coverage
-  data may ever be added** to make the demo look more complete than it
-  is. Nothing built - no `Detection` node type in `graph/build_graph.py`,
-  no coverage-gap layer in `visualize/render_graph.py`. Cross-linked from
-  `multi-agent-ingestion.md`'s "Schema design reference" section and from
-  README's "Future Direction" section. Trigger to actually build it:
-  access to real, environment-specific detection rule data - not a
-  hypothetical or public dataset standing in for one.
-- `docs/future/scalability.md` + `.claude/skills/scalability-design/` -
-  **mostly design-only, dated 2026-08-15**, same discipline as the two
-  docs above - vertical/horizontal scaling analysis for this project's
-  actual architecture, not generic scaling advice. One section is not
-  design-only: "Already true today" verifies, by reading the actual
-  code (`api/main.py` and everything it calls), that the API is
-  genuinely stateless - N replicas behind a load balancer, zero
-  coordination, correct today, not a future goal. The rest is deferred:
-  a vertical-scaling lever priority order specific to this codebase
-  (request concurrency, then caching, then a graph-representation
-  change - explicitly not leading with the graph, since the running
-  service's actual in-memory graph is ~50KB at today's 26 nodes/71
-  edges, distinct from `graph/build_graph.py`'s already-separately-
-  flagged 48MB STIX-bundle load, which is a maintainer-only build-time
-  cost with no bearing on API request latency), and four real-scale
-  infrastructure items (a graph database, a container orchestrator,
-  query caching, rate limiting), each paired with the concrete
-  condition that would make it worth building - none of it built, none
-  of it a roadmap item. Gated by `.claude/skills/scalability-design/`'s
-  trigger conditions (an explicit request to plan scaling, or the seed
-  set genuinely growing significantly beyond 13 techniques, or a real
-  concurrent-user scenario) - not routine build sessions. Cross-linked
-  from `.claude/skills/build-and-document/SKILL.md`.
-- `.claude/skills/fetch-test-logs/` - a data-fetching skill + script for
-  real Atomic Red Team-simulated EVTX/JSON logs
-  ([arniki/atomic-evtx](https://github.com/arniki/atomic-evtx)), cross-
-  referenced against `SEED_TECHNIQUES` (11 of 13 have matching samples;
-  T1078 and T1074.002 don't). See the skill's own SKILL.md for the tier
-  tradeoffs, including a non-obvious finding: the tier-specific
-  filtering only touches the JSON representations, not the raw EVTX
-  files. **Now wired into `tests/test_query_layer_against_evtx.py`** -
-  no longer disconnected scaffolding. `data/test_logs/` currently has
-  one fetched scenario per technique (sanitized tier) so the test suite
-  actually runs rather than sitting permanently skipped; re-run
-  `fetch_test_logs.py --fetch` if that data is ever cleared.
-- `pytest` (added to requirements.txt) - first use is the one test
-  above. Run with `python -m pytest tests/` from the repo root.
-  **`.github/workflows/test.yml` runs this in CI** on every push/PR to
-  `main`: sets up Python, installs dependencies, downloads (and caches)
-  the STIX bundle, rebuilds both graph JSON files from scratch (same
-  sequence as README's Quick Start), then runs the suite. Deliberately
-  limited to the deterministic, free tests - no `ANTHROPIC_API_KEY`/
-  `OPENAI_API_KEY` are configured as GitHub Actions secrets at this
-  stage, so `test_adversarial_queries.py` and the EVTX-cross-check tests
-  in `test_query_layer_against_evtx.py` skip cleanly in CI rather than
-  running or failing - verified for real by simulating that exact
-  environment locally (no `.env`, no fetched `data/test_logs/`) before
-  relying on the claim: 5 skipped, 0 failed, exit code 0. README's
-  Tests badge now links to the real, live workflow run history instead
-  of a static "passing" claim.
-- `.claude/skills/generate-diagrams/` + `graph/generate_diagrams.py` -
-  Mermaid diagrams, split into two categories (see "Diagrams:
-  auto-generated vs. hand-authored" above for the exact list).
-  Auto-generated: a per-technique flow diagram in every
-  `docs/attack-patterns/<ID>-*.md` file's `## Flow` section, and the
-  master kill-chain diagram in README's "Technique Relationship Graph"
-  section - both inside `<!-- BEGIN/END GENERATED -->` markers, rebuilt
-  by `python -m graph.generate_diagrams` whenever `SEMANTIC_EDGES` or
-  `SEED_TECHNIQUES` changes. Hand-authored: the system architecture
-  diagram (README + CLAUDE.md), the query-flow sequence diagram
-  (docs/decisions/003), the provider-abstraction class diagram
-  (docs/decisions/004). **Idempotency verified for real** (ran twice,
-  `diff -rq` showed zero differences) and **every diagram validated
-  against a real renderer**, not just eyeballed - `@mermaid-js/
-  mermaid-cli` pinned to `11.4.3` + `puppeteer@23` (the default install
-  silently fails on this machine's Node 20; puppeteer 25.x requires
-  ≥22.12) rendered all 18 embedded diagrams to non-trivial SVGs. Two
-  real bugs were caught and fixed in the process (a section-insertion
-  placement bug in the generator, and an exit-code-masking bug in the
-  validation script itself) - see BUILD_LOG.md's 2026-08-13 "Mermaid
-  diagrams" entry for both.
-- `visualize/render_graph.py` - interactive pyvis visualization,
-  **built and verified this session (2026-08-15)**, a separate,
-  unrelated generator from the Mermaid pipeline above (see the
-  `visualize/` architecture bullet for the exact boundary). Writes
-  `docs/graph_visualization.html`, linked near the top of README.
-  **Idempotency verified for real** (ran twice, `diff` showed zero
-  differences, not just asserted) and **rendered for real in headless
-  Chrome** (the same cached Chrome-for-Testing binary the
-  `generate-diagrams` skill's mermaid-cli validation used, driven
-  directly via `--headless=new --dump-dom` since no `puppeteer` npm
-  package is installed on this machine - no console errors, the
-  `#mynetwork` canvas + navigation controls render, and a scripted
-  `applyGroupFilter('APT29')` call was confirmed to actually change node/
-  edge opacity as designed, not just assumed to work from reading the
-  JS). See docs/future/detection-coverage.md for a design-only,
-  explicitly-not-built follow-on: layering a coverage-gap view (which
-  techniques lack `FULL` detection coverage) onto this same
-  visualization once real detection-rule data exists to populate it
-  honestly - linked from both `docs/future/multi-agent-ingestion.md`
-  and README's "Future Direction" section, same "no synthetic data"
-  discipline as everywhere else in this project.
-- `api/main.py` + `Dockerfile` / `docker-compose.yml` / `.dockerignore` -
-  **Phase 4, built and verified this session (2026-08-15)**: a FastAPI
-  wrapper (`POST /query`, `GET /health`, `GET /techniques`) around the
-  same `query/retrieval.py`/`query/rag.py`/`query/llm_provider.py`
-  functions `query/ask.py` already calls - see the `api/` Architecture
-  bullet above and docs/decisions/007-api-and-containerization.md.
-  Per the `red-team-assessment` skill's trigger conditions (a new
-  user-facing input path), the LLM and code lenses were run against it
-  before being called done - see docs/security-assessment.md's matching
-  2026-08-15 entry: HTTP exposure doesn't weaken the injection
-  resistance already verified for the CLI (same guarded `rag.answer()`
-  call, no new code in between), a `MaxBodySizeMiddleware` and Pydantic
-  field bound handle oversized requests, and a catch-all exception
-  handler was live-verified (via a monkeypatched exception carrying a
-  planted secret-looking string) to return a generic 500 with no leak.
-  One honestly-documented residual gap: the size middleware checks
-  `Content-Length` only, not an unbounded `Transfer-Encoding: chunked`
-  body. **Verified for real, not just unit-tested**: `docker build`,
-  `docker run`, and `docker compose up --build` were all actually
-  executed (Docker wasn't installed on this machine at the start of the
-  session - installed via `apt-get install docker.io
-  docker-compose-plugin`, both free/open-source packages, no paid
-  account needed), and `/health`, `/techniques`, and `/query` (both the
-  facts-only-no-credentials path and the `provider=openai` full-answer
-  path) were hit against the running container with `curl` and compared
-  against the exact same questions already verified through the CLI -
-  identical facts, identical answers. The fact-injection guard, the
-  no-technique-ID 400, the not-in-graph 404, and the oversized-body 413
-  were all re-verified against the live container too, not just assumed
-  to carry over from the in-process `TestClient` checks.
-- `skills-playbook/` - **built this session (2026-08-15)**: seven
-  domain-agnostic templates (`build-and-document`, `entity-case-file-doc`,
-  `tiered-external-data-fetch`, `generate-diagrams`, `red-team-assessment`,
-  `deferred-scope-design-doc`, `model-usage-tiering`) generalized from
-  this project's own six skills plus the previously-informal model-tier
-  convention above, each with `[PLACEHOLDER: ...]` markers where a new
-  project's specifics go. `skills-playbook/README.md` leads with
-  philosophy, backed by three real, attributed examples from this
-  project's actual history (the reversed T1059.001/T1021.001 edge
-  correction, the excluded fabricated Mandiant citation, the
-  byte-identical-across-tiers EVTX finding) rather than generic advice.
-  Cross-linked from the root README's new "How this project was built"
-  section (near the top, deliberately, since this is meant to be
-  discoverable rather than buried). Kept in sync going forward by
-  `.claude/skills/playbook-sync/` - see the next bullet.
-- `.claude/skills/playbook-sync/` - **built this session (2026-08-15)**,
-  the ongoing-discipline counterpart to `skills-playbook/`'s one-time
-  generalization pass, above (different provenance, committed
-  separately). Triggers whenever a new skill is created under
-  `.claude/skills/`, or an existing skill's `SKILL.md` changes
-  meaningfully (its trigger conditions or methodology - not a typo fix).
-  Generalizes the skill the same way the original six were generalized
-  (strip project-specific content, add `[PLACEHOLDER: ...]` markers,
-  preserve the underlying reasoning/attributed example rather than just
-  the mechanics), saves/updates the corresponding file under
-  `skills-playbook/templates/`, and keeps `skills-playbook/README.md`'s
-  template table from drifting from what's actually in that folder.
-  Explicit that not every skill is worth templating: a skill too
-  domain-specific to generalize meaningfully should be noted as such,
-  not force-templated just to keep the count even. Cross-referenced from
-  `.claude/skills/build-and-document/SKILL.md`, same pattern as its
-  existing links to `red-team-assessment` and
-  `scale-to-continuous-ingestion`.
-- Environment: `mitreattack-python` isn't available as a system package
-  on this machine (Kali marks Python as externally managed) - use the
-  project's `.venv` (gitignored, `python3 -m venv .venv && .venv/bin/pip
-  install -r requirements.txt`) rather than the system `python3` to run
-  anything in `graph/` or `query/`. Docker is now installed on this
-  machine too (`docker.io` + `docker-compose-plugin` from the Kali/
-  Debian repos - see the `api/` bullet above); the installing user's
-  shell session needed `sg docker -c "..."` to pick up the new `docker`
-  group membership without a full logout, in case that's needed again.
-
-Next: `query/ask.py` has been live-tested end-to-end via `OpenAIProvider`
-(three cases: group-filtered, group-inferred, and the no-technique-ID
-error path - see BUILD_LOG.md's 2026-08-13 "Query CLI end-to-end test"
-entry) - Claude itself still hasn't been, since no Anthropic credentials
-are configured on this machine. Cross-group comparison edges are now
-built (2 real comparisons, docs/decisions/006 - see the Current status
-entry above); surfacing them in `query/retrieval.py`'s output is the
-new unbuilt follow-on. The lowest-confidence edges (0.65 tier -
-T1547.001's two incoming edges, T1059.001->T1105 for APT28) would
-benefit from deeper sourcing if time allows - as would re-verifying the
-APT29 `T1105->T1003.002` edge's "not an inference" claim, which surfaced
-as a possible over-statement while re-reading its source report during
-this session's cross-group research but wasn't independently confirmed
-either way. Retrieval is single-technique/one-hop by
-design (docs/decisions/003) for the common case; a chain of 2+
-technique IDs now routes to bounded multi-hop retrieval instead
-(`get_chain_context()`, 2026-10-14, docs/decisions/008) - `api/main.py`
-doesn't expose that chain path yet, unbuilt follow-on. Multi-entity
-queries (e.g. comparing two groups in one call, beyond the existing
-`comparisons` edge attribute) remain a future extension, not a gap in
-this pass. `tests/` has its first real
-test (query layer vs. real EVTX telemetry) - extending coverage to
-`graph/` is unbuilt. CI now exists (`.github/workflows/test.yml`, see
-below) but only runs the deterministic/free tests, per design - no
-Anthropic/OpenAI secrets are configured for GitHub Actions at this
-stage. The `red-team-assessment` skill's (formerly `ai-security-
-assessment`) LLM lens has run two passes so far, both covering
-`OpenAIProvider` only; the second pass (2026-08-14) closed out
-the first pass's "fabricated attribute" open item (docs/security-
-assessment.md's Finding 4) and, on same-day explicit request, fixed the
-underlying gap with a second deterministic guard,
-`_check_no_ungrounded_edges()` (docs/decisions/005's 2026-08-14 update) -
-not left as future work. **Finding 3's system-prompt-paraphrase leak is
-now fixed too (2026-08-15, on explicit request)**: an explicit
-anti-disclosure rule added to `SYSTEM_PROMPT_TEMPLATE`, live re-tested
-(3 framings including 2 new ones beyond the original attack, plus both
-prior findings' cases as a regression check) and Opus-reviewed as CLEAN
-- see docs/security-assessment.md's 2026-08-15 entry. Caveated, not
-claimed as airtight: prompt-level only, no deterministic guard (unlike
-Findings 1/4 - not achievable the same way for arbitrarily-reworded
-prose, per the Opus review), and only 3 framings tried against gpt-5.1.
-Remaining open items (see docs/security-assessment.md's most recent
-"Open items for the next pass"): re-running all cases against
-`ClaudeProvider` once a key exists (injection/extraction resistance is a
-property of the specific model, not just the prompt), untried
-extraction framings (roleplay, translation pretext, incremental partial
-extraction), and the edge-existence guard's own honestly-documented
-residual limit (only catches edge-shaped fabrications with a technique
-ID + edge-type keyword + technique ID close together, not unstructured
-prose asserting the same thing).
-`visualize/render_graph.py` is now built (2026-08-15, see the Current
-status entry above) - the coverage-gap layer sketched in
-docs/future/detection-coverage.md is the new unbuilt follow-on, gated on
-real detection-rule data this machine doesn't have, same as the
-multi-agent-ingestion design doc is gated on a real decision to pursue
-it. The `red-team-assessment` skill's code and web/frontend lenses have
-each run exactly one real pass so far (2026-08-15, see the Current
-status entry above) - re-running both against whatever changes next is
-unbuilt-by-default (it's a trigger-condition skill, not a standing CI
-check), and the code lens's SQL/command-injection and web lens's
-XSS/`innerHTML`-context checks have found nothing to catch yet simply
-because this project doesn't have that surface yet, not because they're
-exhaustively verified safe forever.
-`api/main.py` and Docker packaging are now built too (see the Current
-status entry above and docs/decisions/007) - the web lens wasn't
-re-triggered for this addition since the API returns only JSON (no new
-browser-rendered, request-influenced content), which is a reasoned
-"not applicable" per the skill's own conventions, not a skipped check.
-CI (`.github/workflows/test.yml`) doesn't yet build or exercise the
-Docker image - an unbuilt follow-on, not required by anything asked for
-this session, but worth noting the next time CI is touched.
+- Phases built: structural graph, semantic edges (5 after the audit),
+  query layer with grounding guards, multi-hop chains, FastAPI + Docker.
+- 2026-10-26 consolidation (senior-security-engineer review): guard
+  hardened against four probes (ADR 005 amendment); chains made
+  single-group with incident warnings (ADR 009); all 17 edges
+  re-audited, 12 removed (ADR 010, docs/edge-audit.md); cross-group
+  comparisons and the Kimi stub removed (ADR 006 superseded, ADR 004
+  amendment); README overclaims removed.
+- Verified: `OpenAIProvider` end to end (2026-08-13); Docker build/run
+  (2026-08-15); everything in the deterministic test suite.
+- Not verified: `ClaudeProvider` against a live key; the audit's quotes
+  character by character against the source pages (they came through a
+  summarising fetch tool); the guard against models other than gpt-5.1.
+- Environment: on the owner's Kali machine use the project `.venv`
+  (system Python is externally managed). STIX bundle download command
+  is in README's Quick Start.
+- Next, in order: the owner explains the 5 edges, the guard and the
+  chain rules closed-book (docs/OWNERSHIP.md); spot-check the 5 quotes
+  against the sources by hand. Open questions parked in
+  docs/edge-audit.md's "Open for Venu" are decisions, not tasks.
 
 ## Do NOT
 
-- Don't reproduce the full platform-pitch language (6-phase roadmap,
-  6-gate validator, multi-agent ingestion pipeline) as if it's built or
-  imminent. Document only what this prototype actually contains.
+- Don't add an edge, data source, provider or feature during a
+  consolidation pass. Park it in docs/edge-audit.md or BUILD_LOG.md as
+  a decision for the owner.
+- Don't describe the graph as covering detection, mitigation, tooling
+  or prediction. It covers cited technique order, per group.
+- Don't present a multi-hop path as an observed intrusion unless every
+  hop shares an incident.
+- Don't reproduce platform-pitch language (multi-agent ingestion,
+  validators, roadmaps) as if built or imminent.
 - Don't add real API keys/secrets anywhere.
-- Don't invent confidence scores or campaign details without a citable
-  source.
+- Don't invent confidence scores, quotes or campaign details.

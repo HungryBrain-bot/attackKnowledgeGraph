@@ -788,3 +788,36 @@ generated from any request-controlled data - no new rendering context
 for this lens to check. Re-triggering the web lens is unnecessary until
 this project adds an artifact that actually renders request-influenced
 content in a browser.
+
+## 2026-10-26 - Senior-security-engineer review: guard bypasses, mixed chains, unsupported citations
+
+**Method.** Not a live-model pass: the reviewer fed `rag.answer()`
+fixed model replies through a stub `LLMProvider`, which tests the
+deterministic guards directly, independent of any model's own
+resistance.
+
+**Findings, all reproduced before fixing:**
+
+- **Finding 5 - four guard bypasses** (all would have reached the user):
+  (a) a real edge with a fabricated confidence; (b) a real edge
+  credited to the wrong group; (c) a fabricated edge in passive voice;
+  (d) a fabricated edge followed by "not documented publicly", which
+  tripped the rejection-cue skip. This contradicts the "closes the
+  'fabricated attribute' gap" heading of docs/decisions/005's
+  2026-08-14 update. **Fixed**: attributes are checked against stored
+  values parsed from FACTS, passive voice and other tenses are parsed,
+  and the cue skip needs a quoted edge plus an explicit refusal in the
+  same sentence. The four probes are now CI tests in
+  `tests/test_rag_guard.py`. Residual limits: docs/decisions/005's
+  2026-10-26 amendment, "Known limitations".
+- **Finding 6 - mixed-group chains**: unfiltered `T1021.001 ->
+  T1003.002` returned APT28, APT29, APT28 hops as one path (OWASP
+  LLM09-adjacent: retrieved "facts" that misinform even if the LLM
+  reports them faithfully). **Fixed** in docs/decisions/009.
+- **Finding 7 - citations that did not support their edges**
+  (data integrity, not an LLM issue): **fixed** by the edge audit,
+  docs/decisions/010 and docs/edge-audit.md; 12 of 17 edges removed.
+
+**Not re-run**: the live-model LLM-lens cases, against any provider.
+The prompt and system message were not changed, only the post-check,
+so model-side resistance is as last recorded (gpt-5.1, 2026-08-15).
