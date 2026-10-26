@@ -109,47 +109,24 @@ class OpenAIProvider(LLMProvider):
         return text
 
 
-class KimiProvider(LLMProvider):
-    """Not implemented - no Moonshot/Kimi API key is configured for this
-    project yet. Stubbed for the same reason as OpenAIProvider. Kimi's
-    API is OpenAI-compatible, so implementing this is likely a copy of
-    OpenAIProvider pointed at Moonshot's base URL once a key exists -
-    see CLAUDE.md's "Adding an LLM Provider"."""
-
-    def __init__(self, model: str | None = None):
-        self.model = model or os.environ.get("KIMI_MODEL")
-
-    def generate(self, prompt: str, *, system: str | None = None) -> str:
-        raise NotImplementedError(
-            "KimiProvider is a stub - no Kimi/Moonshot API key is "
-            "configured for this project. Implement generate() with an "
-            "OpenAI-compatible client pointed at Moonshot's base URL once "
-            "a key is available; see CLAUDE.md's 'Adding an LLM Provider'."
-        )
-
-
 PROVIDERS: dict[str, type[LLMProvider]] = {
     "claude": ClaudeProvider,
     "openai": OpenAIProvider,
-    "kimi": KimiProvider,
 }
 
 # Which env var(s) each provider needs to actually make a call. Used only
 # by has_credentials() below for a proactive, no-network-call check - not
 # by the providers themselves, which still read credentials the normal
-# way (the SDK's own env var lookup, or KimiProvider's NotImplementedError).
+# way (the SDK's own env var lookup).
 CREDENTIAL_ENV_VARS: dict[str, tuple[str, ...]] = {
     "claude": ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"),
     "openai": ("OPENAI_API_KEY",),
-    "kimi": ("KIMI_API_KEY",),
 }
 
 
 def has_credentials(name: str | None = None) -> bool:
     """Whether the environment has credentials for the configured (or
-    given) provider, without making a network call. `KimiProvider` has no
-    real key wired up yet (it's a stub - see its class docstring), so this
-    always returns False for "kimi" today, correctly.
+    given) provider, without making a network call.
 
     Callers like query/ask.py use this to degrade gracefully (skip the
     LLM call, show retrieved facts only) instead of attempting a call

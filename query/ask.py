@@ -31,21 +31,13 @@ TECHNIQUE_ID_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b", re.IGNORECASE)
 def extract_technique_ids(question: str) -> list[str]:
     """Every technique ID mentioned, in the order they first appear,
     deduplicated. Powers both the single-technique and multi-hop chain
-    paths in main() below."""
+    paths in main() below, and api/main.py's /query."""
     ids = []
     for m in TECHNIQUE_ID_RE.finditer(question):
         tid = m.group(0).upper()
         if tid not in ids:
             ids.append(tid)
     return ids
-
-
-def extract_technique_id(question: str) -> str | None:
-    """Back-compat single-ID extraction - api/main.py (still single-hop
-    only) and this module's own single-technique path both use this.
-    Returns the first technique ID mentioned, or None."""
-    ids = extract_technique_ids(question)
-    return ids[0] if ids else None
 
 
 def extract_group(question: str) -> str | None:
