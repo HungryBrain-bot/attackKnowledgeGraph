@@ -191,39 +191,15 @@ flowchart LR
     T_T1560_001["T1560.001<br/>Archive via Utility"]
     T_T1566_001["T1566.001<br/>Spearphishing Attachment"]
     T_T1021_001 -->|"APT28"| T_T1059_001
-    T_T1057 -.->|"APT29"| T_T1083
-    T_T1059_001 -.->|"APT29"| T_T1078
-    T_T1059_001 -->|"APT28"| T_T1105
-    T_T1059_001 -->|"APT28"| T_T1547_001
-    T_T1078 -->|"APT28"| T_T1003_002
+    T_T1078 -.->|"APT28"| T_T1003_002
     T_T1078 -->|"APT28"| T_T1021_001
-    T_T1078 -.->|"APT29"| T_T1057
     T_T1078 -->|"APT28"| T_T1059_001
-    T_T1083 -.->|"Lazarus Group"| T_T1560_001
-    T_T1105 -->|"APT29"| T_T1003_002
-    T_T1105 -->|"APT29"| T_T1547_001
     T_T1204_002 -->|"APT29"| T_T1059_001
-    T_T1560_001 -->|"Lazarus Group"| T_T1071_001
-    T_T1560_001 -.->|"APT29"| T_T1074_002
-    T_T1566_001 -.->|"APT29"| T_T1204_002
-    T_T1566_001 -.->|"Lazarus Group"| T_T1204_002
     linkStyle 0 stroke:#C44E52,stroke-width:2px
-    linkStyle 1 stroke:#4C72B0,stroke-width:2px
-    linkStyle 2 stroke:#4C72B0,stroke-width:2px
+    linkStyle 1 stroke:#C44E52,stroke-width:2px
+    linkStyle 2 stroke:#C44E52,stroke-width:2px
     linkStyle 3 stroke:#C44E52,stroke-width:2px
-    linkStyle 4 stroke:#C44E52,stroke-width:2px
-    linkStyle 5 stroke:#C44E52,stroke-width:2px
-    linkStyle 6 stroke:#C44E52,stroke-width:2px
-    linkStyle 7 stroke:#4C72B0,stroke-width:2px
-    linkStyle 8 stroke:#C44E52,stroke-width:2px
-    linkStyle 9 stroke:#55A868,stroke-width:2px
-    linkStyle 10 stroke:#4C72B0,stroke-width:2px
-    linkStyle 11 stroke:#4C72B0,stroke-width:2px
-    linkStyle 12 stroke:#4C72B0,stroke-width:2px
-    linkStyle 13 stroke:#55A868,stroke-width:2px
-    linkStyle 14 stroke:#4C72B0,stroke-width:2px
-    linkStyle 15 stroke:#4C72B0,stroke-width:2px
-    linkStyle 16 stroke:#55A868,stroke-width:2px
+    linkStyle 4 stroke:#4C72B0,stroke-width:2px
 ```
 
 *Edge color by group: APT28 = `#C44E52`, APT29 = `#4C72B0`, Lazarus Group = `#55A868`. Dashed = TEMPORALLY_PRECEDES, solid = CAUSALLY_ENABLES.*

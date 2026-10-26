@@ -1,5 +1,13 @@
 # T1078 - Valid Accounts
 
+> **Edge audit, 2026-10-26.** The semantic edges for this technique were
+> re-checked against primary sources ([docs/edge-audit.md](../edge-audit.md)).
+> Kept: `T1078 -> T1021.001` (APT28), `T1078 -> T1003.002` (APT28), `T1078 -> T1059.001` (APT28).
+> Removed: `T1059.001 -> T1078` (APT29), `T1078 -> T1057` (APT29).
+> Prose below that describes a removed edge, or the removed cross-group
+> comparison, is the pre-audit record and is no longer backed by the graph.
+> The Flow diagram is regenerated from the current graph.
+
 ## The Attack - What Actually Happens
 Once an adversary has credentials - dumped, brute-forced, or phished -
 they stop looking like an intruder and start looking like a user. For
@@ -86,12 +94,9 @@ flowchart LR
     T_T1078["T1078<br/>Valid Accounts"]
     T_T1003_002["T1003.002<br/>Security Account Manager"]
     T_T1021_001["T1021.001<br/>Remote Desktop Protocol"]
-    T_T1057["T1057<br/>Process Discovery"]
     T_T1059_001["T1059.001<br/>PowerShell"]
-    T_T1059_001 -.->|"TEMPORALLY_PRECEDES<br/>APT29, 0.85"| T_T1078
-    T_T1078 -->|"CAUSALLY_ENABLES<br/>APT28, 0.85"| T_T1003_002
-    T_T1078 -->|"CAUSALLY_ENABLES<br/>APT28, 0.75"| T_T1021_001
-    T_T1078 -.->|"TEMPORALLY_PRECEDES<br/>APT29, 0.7"| T_T1057
-    T_T1078 -->|"CAUSALLY_ENABLES<br/>APT28, 0.75"| T_T1059_001
+    T_T1078 -.->|"TEMPORALLY_PRECEDES<br/>APT28, 0.75"| T_T1003_002
+    T_T1078 -->|"CAUSALLY_ENABLES<br/>APT28, 0.85"| T_T1021_001
+    T_T1078 -->|"CAUSALLY_ENABLES<br/>APT28, 0.7"| T_T1059_001
 ```
 <!-- END GENERATED -->

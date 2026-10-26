@@ -33,8 +33,8 @@ import networkx as nx
 
 SEMANTIC_EDGE_TYPES = ("TEMPORALLY_PRECEDES", "CAUSALLY_ENABLES")
 
-# Bounded rather than unbounded: the semantic-edge graph is small (17
-# hand-authored edges today) and a chain query only makes sense between
+# Bounded rather than unbounded: the semantic-edge graph is small (5
+# audited edges since 2026-10-26) and a chain query only makes sense between
 # techniques already roughly kill-chain-adjacent, so 4 hops is generous
 # for anything this prototype's data actually supports. Revisit this if
 # the semantic-edge set grows enough that 4 hops stops reaching
@@ -58,6 +58,8 @@ def _edge_core_fields(data: dict) -> dict:
         "sources": data["sources"],
         "evidence": data["evidence"],
         "incident_id": data.get("incident_id"),
+        "quote": data.get("quote"),
+        "source_url": data.get("source_url"),
     }
 
 
@@ -298,6 +300,7 @@ def format_context(context: dict) -> str:
             f"    confidence: {e['confidence']}, sample_size: {e['sample_size']}, "
             f"incident: {e['incident_id'] or 'unknown'}, sources: {', '.join(e['sources'])}"
         )
+        lines.append(f"    quote: \"{e['quote']}\" ({e['source_url']})")
         lines.append(f"    evidence: {e['evidence']}")
 
     return "\n".join(lines)
@@ -357,6 +360,7 @@ def format_chain_context(context: dict) -> str:
                     f"    confidence: {hop['confidence']}, sample_size: {hop['sample_size']}, "
                     f"incident: {hop['incident_id'] or 'unknown'}, sources: {', '.join(hop['sources'])}"
                 )
+                lines.append(f"    quote: \"{hop['quote']}\" ({hop['source_url']})")
                 lines.append(f"    evidence: {hop['evidence']}")
         lines.append("")
 

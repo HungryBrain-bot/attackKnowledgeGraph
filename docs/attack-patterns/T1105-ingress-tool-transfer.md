@@ -1,5 +1,13 @@
 # T1105 - Ingress Tool Transfer
 
+> **Edge audit, 2026-10-26.** The semantic edges for this technique were
+> re-checked against primary sources ([docs/edge-audit.md](../edge-audit.md)).
+> Kept: none.
+> Removed: `T1059.001 -> T1105` (APT28), `T1105 -> T1003.002` (APT29), `T1105 -> T1547.001` (APT29).
+> Prose below that describes a removed edge, or the removed cross-group
+> comparison, is the pre-audit record and is no longer backed by the graph.
+> The Flow diagram is regenerated from the current graph.
+
 ## The Attack - What Actually Happens
 For APT29's UNC3524 activity (merged in as "Eye Spy on Your Email"),
 ingress tool transfer is the opening move, not a follow-on: the actor's
@@ -56,11 +64,6 @@ follow, not the other way around.
 ```mermaid
 flowchart LR
     T_T1105["T1105<br/>Ingress Tool Transfer"]
-    T_T1003_002["T1003.002<br/>Security Account Manager"]
-    T_T1059_001["T1059.001<br/>PowerShell"]
-    T_T1547_001["T1547.001<br/>Registry Run Keys / Startup Folder"]
-    T_T1059_001 -->|"CAUSALLY_ENABLES<br/>APT28, 0.65"| T_T1105
-    T_T1105 -->|"CAUSALLY_ENABLES<br/>APT29, 0.8"| T_T1003_002
-    T_T1105 -->|"CAUSALLY_ENABLES<br/>APT29, 0.65"| T_T1547_001
+    %% no semantic edges touch T1105 yet
 ```
 <!-- END GENERATED -->

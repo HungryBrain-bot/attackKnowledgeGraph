@@ -88,3 +88,11 @@ repo.
 - Extending coverage later (T1003.002, T1057, T1105, T1547.001, or any
   cross-group comparison edges) means repeating this same sourcing
   discipline, not just filling in the schema shape.
+
+## Update, 2026-10-26 - "a real citation" was not enough
+
+Naming a real report did not make an edge true: the 2026-10-26 audit
+found citations that did not support their edges. Every edge now also
+carries `source_url`, `source_date`, a verbatim `quote` and an
+`incident_id`, and 12 of the 17 edges were removed. See
+docs/decisions/010-edge-reaudit.md and docs/edge-audit.md.
