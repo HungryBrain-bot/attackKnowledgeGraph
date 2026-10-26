@@ -1,7 +1,7 @@
 # 006. Cross-group comparisons are annotations on existing edges, not a new edge type
 
 ## Status
-Accepted
+Superseded (2026-10-26) - removed; see the amendment at the end.
 
 ## Context
 ADR-002 scoped semantic edges to one group's documented behavior
@@ -178,3 +178,22 @@ exactly this reason - see the module docstring and per-comparison
   unsubstantiated pairs, comparison-specific confidence reasoning), not
   just filling in the schema shape - same principle ADR-002 already
   established for edges.
+
+## Amendment, 2026-10-26 - removed as unused, and its edges did not survive the audit
+
+The comparisons were attached to edges but never read: `retrieval.py`
+did not surface the `comparisons` attribute, so no query answer could
+use them. The 2026-10-26 senior-security-engineer review flagged them
+as dead weight. The edge re-audit the same day (docs/decisions/010,
+`docs/edge-audit.md`) then removed three of their four constituent
+edges: both `T1566.001 -> T1204.002` edges (true by definition, since
+a malicious attachment can only be executed after it is delivered) and
+APT29's `T1059.001 -> T1078` (its source does not show PowerShell
+preceding the account use). With those gone, neither comparison has
+anything to compare.
+
+`CROSS_GROUP_COMPARISONS`, `add_cross_group_comparisons()` and
+`_find_semantic_edge()` were deleted from `graph/semantic_edges.py`.
+Nothing imported them. The reasoning above is kept as the record of
+what was tried; if comparisons come back, they need verified edges on
+both sides first and a consumer in `retrieval.py`.

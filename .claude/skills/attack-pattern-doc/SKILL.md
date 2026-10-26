@@ -57,7 +57,16 @@ detection coverage."
   correctness.
 - Copyright: paraphrase CTI report findings in your own words, don't
   reproduce report text; short factual citations (technique ID, group
-  name, published confidence assessment) are fine.
+  name, published confidence assessment) are fine. One exception since
+  2026-10-26: each semantic edge's `quote` field holds a verbatim
+  extract under 25 words, because a citation that cannot be checked
+  against the source sentence turned out not to be a citation (see
+  docs/decisions/010-edge-reaudit.md). Keep it to the one sentence
+  that supports the edge.
+- A semantic edge needs a source that narrates that specific order or
+  dependency for that group. Two techniques appearing in the same
+  report is co-citation, not evidence of order. See CLAUDE.md's
+  "Adding or changing an edge".
 
 ## Do NOT
 

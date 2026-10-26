@@ -1647,3 +1647,56 @@ after rather than leaving it as unbuilt follow-on work.
 - Updated docs/decisions/008, CLAUDE.md (`api/` and `query/` bullets,
   `tests/` count), and README.md (Phase 5 Roadmap entry, repo structure's
   `api/`/`tests/` listings, removed the now-stale Planned item for this).
+
+## 2026-10-26 - Consolidation after senior-security-engineer review
+
+Correction pass only, on branch `claude/consolidate-security-review`,
+one commit per step. No new features, data sources, providers or
+edges. The review's verdict was that the project's claims outran what
+it does; each step below was reproduced before it was fixed.
+
+- **Guard** (`query/rag.py`): four probes passed `_check_no_ungrounded_
+  edges()` - fabricated confidence, wrong group, passive voice, and an
+  edge excused by a nearby "not documented". Added as failing tests
+  through `answer()` first, then fixed: attributes checked against the
+  stored facts, passive voice and all tenses parsed, quoted-refusal skip
+  narrowed. ADR 005 gets a dated amendment and a Known limitations
+  section; its 2026-08-14 heading ("closes the gap") is left as the
+  record of the overclaim.
+- **Chains** (`query/retrieval.py`): unfiltered `T1021.001 -> T1003.002`
+  returned APT28/APT29/APT28 hops. Paths are now single-group, listed
+  per group, and flagged when they join incidents. New `incident_id`
+  edge field. ADR 009.
+- **Cross-group comparisons removed**: never read by any query path,
+  and their edges did not survive the audit. ADR 006 superseded.
+- **Edge audit**: all 17 edges re-checked against primary sources
+  fetched today. 5 kept (each now with `source_url`, `source_date`,
+  verbatim `quote`, `incident_id`), 12 removed with reasons in
+  docs/edge-audit.md: 2 true by definition, 10 unsupported (a 2015
+  report credited with 2016 malware; a 2022 phishing report labelled
+  SolarWinds; an Andariel advisory credited to Lazarus; co-citation
+  presented as sequence). One edge re-sourced (PowerDuke). ADR 010.
+  Quotes came through a summarising fetch tool and still need a
+  by-hand spot check.
+- **Dead code removed**: `KimiProvider` stub, `ask.extract_technique_id()`,
+  `render_graph.STRUCTURAL_EDGE_TYPES` (grep + vulture: no callers).
+  ADR 004 amendment; its class diagram also wrongly showed
+  `ClaudeProvider` as live-tested - corrected.
+- **Docs**: README rewritten around what the graph does and a "What
+  this does NOT do" section; "detection coverage gaps" and the
+  Navigator comparison table removed. CLAUDE.md rewritten as a
+  current-state snapshot with an "Adding or changing an edge"
+  procedure and a Testing section. New docs/OWNERSHIP.md. Dated
+  entry in docs/security-assessment.md (Findings 5-7). Case files get
+  dated audit notes rather than a prose rewrite.
+- Graph: 26 nodes, 59 edges (was 71). The rebuild also picked up an
+  upstream MITRE wording change in some technique descriptions and
+  tactic lists (e.g. `stealth` on T1078).
+- Tests: 45 passed, 7 skipped (live-LLM and EVTX files, no key or logs
+  here), 0 failed, run before every commit.
+- Not done: live-model re-run of the adversarial cases; by-hand quote
+  spot check; `skills-playbook/` not re-synced for the two skill edits
+  (attack-pattern-doc's quote rule, build-and-document's edge
+  checklist) - run playbook-sync if those templates matter.
+- Next: owner explains the project closed-book from docs/OWNERSHIP.md.
+  Not more building.

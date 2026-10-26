@@ -1,5 +1,13 @@
 # T1057 - Process Discovery
 
+> **Edge audit, 2026-10-26.** The semantic edges for this technique were
+> re-checked against primary sources ([docs/edge-audit.md](../edge-audit.md)).
+> Kept: none.
+> Removed: `T1078 -> T1057` (APT29), `T1057 -> T1083` (APT29).
+> Prose below that describes a removed edge, or the removed cross-group
+> comparison, is the pre-audit record and is no longer backed by the graph.
+> The Flow diagram is regenerated from the current graph.
+
 ## The Attack - What Actually Happens
 In the SolarWinds/SUNBURST intrusion, APT29 ran process discovery as
 part of a broader environmental survey once they already held privileged
@@ -56,9 +64,6 @@ look around" guess.
 ```mermaid
 flowchart LR
     T_T1057["T1057<br/>Process Discovery"]
-    T_T1078["T1078<br/>Valid Accounts"]
-    T_T1083["T1083<br/>File and Directory Discovery"]
-    T_T1057 -.->|"TEMPORALLY_PRECEDES<br/>APT29, 0.7"| T_T1083
-    T_T1078 -.->|"TEMPORALLY_PRECEDES<br/>APT29, 0.7"| T_T1057
+    %% no semantic edges touch T1057 yet
 ```
 <!-- END GENERATED -->

@@ -34,7 +34,11 @@ model to police itself. The second pass (docs/security-assessment.md,
 2026-08-14 Finding 4) found the first guard's real, narrower scope: it
 verifies every cited technique ID appears somewhere in FACTS, but not
 that a cited *edge* (or the attributes on it) between two such IDs is
-real - see docs/decisions/005's 2026-08-14 update for that fix.
+real - see docs/decisions/005's 2026-08-14 update for that fix. A
+2026-10-26 review showed that fix still let fabricated attributes,
+wrong-group labels, passive-voice edges and cue-excused edges through;
+docs/decisions/005's 2026-10-26 amendment covers the tightened check
+and its Known limitations.
 """
 import re
 
@@ -53,8 +57,10 @@ TECHNIQUE_ID_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b", re.IGNORECASE)
 # "SRC -> (edge type) TGT" prose style seen in live model responses.
 # The target ID is a lookahead (not consumed) so a chain like
 # "A --X--> B --Y--> C" yields both edges (A,X,B) and (B,Y,C) instead of
-# the second one being swallowed by the first match.
-_EDGE_TYPE_ALT = r"(?:TEMPORALLY[ _]PRECEDES|CAUSALLY[ _]ENABLES)"
+# the second one being swallowed by the first match. Accepts any tense
+# of the verb ("precedes"/"preceded", "enables"/"enabled") - the
+# 2026-10-26 review showed a tense change alone was enough to slip past.
+_EDGE_TYPE_ALT = r"(?:TEMPORALLY[ _]PRECED(?:ES|ED|E)|CAUSALLY[ _]ENABL(?:ES|ED|E))"
 EDGE_MENTION_RE = re.compile(
     r"(?P<src>T\d{4}(?:\.\d{3})?)"
     r"(?:\s*\([^)]{0,80}\))?"
@@ -65,20 +71,51 @@ EDGE_MENTION_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Phrases indicating a matched edge is being quoted/referenced while
-# being REJECTED, not asserted as fact - e.g. "...the edge you proposed,
+# Passive voice reverses the direction: "B is causally enabled by A"
+# asserts the edge A --CAUSALLY_ENABLES--> B. Probe (c) of the
+# 2026-10-26 review used exactly this to assert a fabricated edge.
+PASSIVE_EDGE_MENTION_RE = re.compile(
+    r"(?P<tgt>T\d{4}(?:\.\d{3})?)"
+    r"(?:\s*\([^)]{0,80}\))?"
+    r"\s*(?:is|was|are|were|be|been|being)\s+"
+    r"(?P<etype>TEMPORALLY[ _]PRECEDED|CAUSALLY[ _]ENABLED)\s+by\s+"
+    r"(?=(?P<src>T\d{4}(?:\.\d{3})?))",
+    re.IGNORECASE,
+)
+
+# A FACTS-block edge line carries its group in brackets, e.g.
+# "  - [APT29] T1059.001 --TEMPORALLY_PRECEDES--> T1078 (Valid Accounts)"
+# or "  hop 1: [APT29] T1566.001 (...) --TEMPORALLY_PRECEDES--> T1204.002";
+# the attribute line right after it starts "confidence: 0.85, sample_size: 2".
+_FACTS_GROUP_RE = re.compile(r"\[(?P<group>[^\]]+)\]")
+_FACTS_ATTRS_RE = re.compile(r"confidence:\s*(?P<conf>[0-9.]+),\s*sample_size:\s*(?P<n>\d+)")
+
+# Attribute claims in the model's reply, checked against the stored
+# values for the edge they sit next to (probe (a): a real edge with a
+# fabricated confidence passed the old guard).
+_REPLY_CONFIDENCE_RE = re.compile(r"confidence(?:\s+(?:score|of|is|=))?\s*[:=]?\s*(?P<v>[01]?\.\d+|[01])\b", re.IGNORECASE)
+_REPLY_SAMPLE_SIZE_RE = re.compile(r"sample[ _]size(?:\s+(?:of|is|=))?\s*[:=]?\s*(?P<v>\d+)\b", re.IGNORECASE)
+
+# Phrases indicating a matched edge is being quoted while being
+# REJECTED, not asserted - e.g. "...the edge you proposed,
 # 'T1204.002 --TEMPORALLY_PRECEDES--> T1078,' is not present in the
 # FACTS block" (a real, correct refusal from Finding 4's Attempt 3).
-# Checked in a short window after each unmatched edge before raising, so
-# a correct refusal that repeats the attacker's fabricated edge back
-# verbatim isn't itself flagged as the violation.
+#
+# NARROWED 2026-10-26 (probe (d)): the old list included loose phrases
+# like "not documented", and any cue within 160 characters after the
+# edge was enough to skip it - so "A --X--> B. This is not documented
+# publicly, but it happened" passed. Now a skip needs BOTH (1) the edge
+# quoted verbatim (in quotes or backticks), and (2) one of these
+# explicit refusal phrases in the same sentence. Unquoted assertions
+# are never skipped, whatever follows them.
 _REJECTION_CUES = (
     "not present", "not in the fact", "does not exist", "doesn't exist",
-    "no such edge", "cannot confirm", "can't confirm", "not supported",
-    "no evidence", "fabricat", "invented", "not grounded", "not real",
-    "not accurate", "you proposed", "you mentioned", "you claimed",
-    "cannot be used", "can't be used", "not documented", "not part of",
+    "no such edge", "cannot confirm", "can't confirm", "not supported by",
+    "not grounded", "you proposed", "you mentioned", "you claimed",
+    "cannot be used", "can't be used", "not part of the fact",
+    "fabricated", "is not real", "isn't real",
 )
+_QUOTE_CHARS = "\"'`“”‘’"
 
 SYSTEM_PROMPT_TEMPLATE = """\
 You are the answer-formatting layer of a MITRE ATT&CK knowledge graph \
@@ -142,61 +179,161 @@ def _check_no_ungrounded_techniques(response_text: str, facts: str) -> None:
         )
 
 
+def _iter_edge_mentions(text: str):
+    """Yields (triple, match) for every edge-shaped mention in `text`,
+    active or passive voice, with IDs uppercased and edge_type
+    normalized to the canonical "TEMPORALLY_PRECEDES"/"CAUSALLY_ENABLES"
+    whatever tense or spacing the text used."""
+    for regex in (EDGE_MENTION_RE, PASSIVE_EDGE_MENTION_RE):
+        for m in regex.finditer(text):
+            etype = m.group("etype").upper().replace(" ", "_")
+            etype = "TEMPORALLY_PRECEDES" if etype.startswith("TEMPORALLY") else "CAUSALLY_ENABLES"
+            yield (m.group("src").upper(), etype, m.group("tgt").upper()), m
+
+
 def _extract_edge_mentions(text: str) -> set[tuple[str, str, str]]:
-    """Extracts every (source, edge_type, target) triple mentioned in
-    `text` via EDGE_MENTION_RE, normalized to uppercase IDs and an
-    underscore-joined edge_type, so "causally enables" and
-    "CAUSALLY_ENABLES" compare equal."""
+    """Every (source, edge_type, target) triple mentioned in `text`."""
+    return {triple for triple, _ in _iter_edge_mentions(text)}
+
+
+def _extract_edge_facts(facts: str) -> dict[tuple[str, str, str], list[dict]]:
+    """Maps each edge in the FACTS block to the stored attributes it was
+    printed with - one entry per group, since the same technique pair
+    can carry a separate edge per group. Parsed from the deterministic
+    text retrieval.format_context()/format_chain_context() emit, which
+    is generated from the graph, never from model or user text."""
+    edge_facts: dict[tuple[str, str, str], list[dict]] = {}
+    lines = facts.splitlines()
+    for i, line in enumerate(lines):
+        group_m = _FACTS_GROUP_RE.search(line)
+        if not group_m:
+            continue
+        triples = _extract_edge_mentions(line)
+        if not triples:
+            continue
+        attrs_m = _FACTS_ATTRS_RE.search(lines[i + 1]) if i + 1 < len(lines) else None
+        record = {
+            "group": group_m.group("group").strip(),
+            "confidence": float(attrs_m.group("conf")) if attrs_m else None,
+            "sample_size": int(attrs_m.group("n")) if attrs_m else None,
+        }
+        for triple in triples:
+            edge_facts.setdefault(triple, []).append(record)
+    return edge_facts
+
+
+def _sentence_bounds(text: str, start: int, end: int) -> tuple[int, int]:
+    """Start/end offsets of the sentence containing text[start:end].
+    A sentence ends at ., ! or ? followed by whitespace, or a newline -
+    so the dot inside "T1059.001" never splits one."""
+    left = max(text.rfind("\n", 0, start), *(text.rfind(p, 0, start) for p in (". ", "! ", "? ")))
+    left = 0 if left < 0 else left + 1
+    right_candidates = [i for i in (text.find(p, end) for p in (". ", "! ", "? ", "\n")) if i >= 0]
+    right = min(right_candidates) + 1 if right_candidates else len(text)
+    return left, right
+
+
+def _group_aliases() -> dict[str, re.Pattern]:
+    """Seed group name -> pattern matching it in prose. Multi-word names
+    also match their first word ("Lazarus" for "Lazarus Group"), since
+    models routinely shorten it."""
+    from graph.seed_config import SEED_GROUPS
+
     return {
-        (m.group("src").upper(), m.group("etype").upper().replace(" ", "_"), m.group("tgt").upper())
-        for m in EDGE_MENTION_RE.finditer(text)
+        name: re.compile(r"\b(?:" + re.escape(name) + "|" + re.escape(name.split()[0]) + r")\b", re.IGNORECASE)
+        for name in SEED_GROUPS
     }
+
+
+def _is_quoted_rejection(response_text: str, m: re.Match, sentence: str) -> bool:
+    """True only when the edge mention is quoted verbatim AND its
+    sentence contains an explicit refusal phrase - see _REJECTION_CUES."""
+    first = min(m.start("src"), m.start("tgt"))
+    last = max(m.end("src"), m.end("tgt"))
+    before = response_text[max(0, first - 3) : first]
+    after = response_text[last : last + 3]
+    quoted = any(c in before for c in _QUOTE_CHARS) and any(c in after for c in _QUOTE_CHARS)
+    return quoted and any(cue in sentence.lower() for cue in _REJECTION_CUES)
 
 
 def _check_no_ungrounded_edges(response_text: str, facts: str) -> None:
     """Deterministic guard against docs/security-assessment.md's
-    2026-08-14 Finding 4: `_check_no_ungrounded_techniques()` alone only
-    verifies every technique ID mentioned in the answer appears
-    SOMEWHERE in the FACTS block - it doesn't verify a cited *edge*
-    between two such IDs actually exists. Three live attacks exploited
-    exactly that gap (fabricated confidence/sample_size/sources, or a
-    wholly fabricated edge, between two individually-real technique
-    IDs) without tripping the ID-only guard - see that entry for the
-    full transcripts.
+    2026-08-14 Finding 4, tightened 2026-10-26 after a review found
+    four fabrications that passed it (docs/decisions/005's 2026-10-26
+    amendment). For every edge-shaped mention in the response:
 
-    This checks every edge-shaped mention in the response (the same
-    arrow syntax format_context() emits, since the system prompt asks
-    the model to cite edges the same way) against the edges actually
-    present in FACTS, and raises if one doesn't match - UNLESS a
-    rejection cue (e.g. "not present", "you proposed") appears shortly
-    after it, since a correct refusal often quotes the fabricated edge
-    back verbatim while declining it (Finding 4's Attempt 3), and that
-    quoting must not itself be treated as a violation.
+    1. The (source, edge_type, target) triple must exist in FACTS.
+       Matched in active voice in any tense, and in passive voice
+       ("B is causally enabled by A" is read as A -> B).
+    2. If the sentence names a seed group, at least one named group
+       must be a group FACTS records that edge for (probe (b)).
+    3. A confidence or sample_size stated in the same sentence must
+       equal a stored value for that edge (probe (a)).
 
-    Bounded, not a general hallucination detector: only catches
-    fabrications phrased with a technique ID, an edge-type keyword, and
-    a second technique ID close enough together to match EDGE_MENTION_RE
-    - free-form prose that asserts the same fabrication without that
-    shape (e.g. "PowerShell reliably leads to Valid Accounts here") is
-    not caught. That's an accepted, documented limit, not a claim of
-    complete coverage - see docs/decisions/005's 2026-08-14 update."""
-    real_edges = _extract_edge_mentions(facts)
-    lower_response = response_text.lower()
-    for m in EDGE_MENTION_RE.finditer(response_text):
-        etype = m.group("etype").upper().replace(" ", "_")
-        triple = (m.group("src").upper(), etype, m.group("tgt").upper())
-        if triple in real_edges:
-            continue
-        window = lower_response[m.end() : m.end() + 160]
-        if any(cue in window for cue in _REJECTION_CUES):
-            continue
-        raise RuntimeError(
-            f"Answer asserts an edge not present in the retrieved FACTS "
-            f"block: {triple[0]} --{triple[1]}--> {triple[2]}. This is "
-            f"the failure mode documented in docs/security-assessment.md's "
-            f"2026-08-14 Finding 4 - refusing to return this answer "
-            f"rather than risk surfacing a fabricated edge or attribute."
-        )
+    An unmatched edge is skipped only when it is quoted verbatim and
+    its sentence contains an explicit refusal phrase - a correct refusal
+    often repeats the fabricated edge back (Finding 4's Attempt 3), but
+    an unquoted assertion is never skipped (probe (d)).
+
+    Still bounded, not a general hallucination detector. Not caught:
+    free prose with no edge-type keyword ("PowerShell leads to Valid
+    Accounts"), a wrong group named in a different sentence from the
+    edge, a sentence naming both the right and a wrong group, and
+    fabricated source names or evidence text. See docs/decisions/005's
+    Known limitations."""
+    edge_facts = _extract_edge_facts(facts)
+    aliases = _group_aliases()
+    mentions = list(_iter_edge_mentions(response_text))
+    mention_starts = sorted(min(m.start("src"), m.start("tgt")) for _, m in mentions)
+
+    for triple, m in mentions:
+        sent_start, sent_end = _sentence_bounds(response_text, m.start(), m.end())
+        sentence = response_text[sent_start:sent_end]
+        label = f"{triple[0]} --{triple[1]}--> {triple[2]}"
+
+        stored = edge_facts.get(triple)
+        if stored is None:
+            if _is_quoted_rejection(response_text, m, sentence):
+                continue
+            raise RuntimeError(
+                f"Answer asserts an edge not present in the retrieved FACTS "
+                f"block: {label}. This is the failure mode documented in "
+                f"docs/security-assessment.md's 2026-08-14 Finding 4 - "
+                f"refusing to return this answer rather than risk "
+                f"surfacing a fabricated edge or attribute."
+            )
+
+        stored_groups = {r["group"] for r in stored}
+        named_groups = {g for g, pat in aliases.items() if pat.search(sentence)}
+        if named_groups and not named_groups & stored_groups:
+            raise RuntimeError(
+                f"Answer attributes {label} to {sorted(named_groups)}, but "
+                f"the FACTS block records it only for {sorted(stored_groups)} "
+                f"- refusing to return a real edge under the wrong group."
+            )
+
+        # Attribute claims for this edge sit between its target ID and
+        # the next edge mention (or the sentence end), so a chain like
+        # "A --X--> B (confidence: 0.8), C --Y--> D (confidence: 0.9)"
+        # checks each claim against its own edge.
+        tgt_end = max(m.end("src"), m.end("tgt"))
+        next_start = next((p for p in mention_starts if p > max(m.start("src"), m.start("tgt"))), sent_end)
+        after_edge = response_text[tgt_end : min(next_start, sent_end)]
+        for attr, regex, cast in (
+            ("confidence", _REPLY_CONFIDENCE_RE, float),
+            ("sample_size", _REPLY_SAMPLE_SIZE_RE, int),
+        ):
+            claim = regex.search(after_edge)
+            if claim is None:
+                continue
+            allowed = {r[attr] for r in stored if r[attr] is not None}
+            if allowed and cast(claim.group("v")) not in allowed:
+                raise RuntimeError(
+                    f"Answer states {attr} {claim.group('v')} for {label}, "
+                    f"but the FACTS block records {sorted(allowed)} - "
+                    f"refusing to return a real edge with a fabricated "
+                    f"attribute."
+                )
 
 
 def answer(question: str, facts: str, provider: LLMProvider | None = None) -> str:

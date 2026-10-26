@@ -53,6 +53,13 @@ What this makes easier, harder, or explicitly out of scope now.
   accurate snapshot of the project right now.
 - `BUILD_LOG.md` is **append-only** - one entry per session, dated,
   short: what got built, what's mocked vs real, what's next.
+- Before adding or changing a semantic edge, follow CLAUDE.md's
+  "Adding or changing an edge" checklist (fetchable source URL,
+  verbatim quote, incident ID, a row in docs/edge-audit.md). Before
+  changing `query/rag.py`'s guards, add the failing probe as a test
+  first (see `tests/test_rag_guard.py`) and record what the guard
+  still misses in ADR 005's Known limitations - never describe a
+  guard as closing a gap in general.
 - After changing `graph/semantic_edges.py` or `graph/seed_config.py`,
   see the generate-diagrams skill - the data-driven Mermaid diagrams
   need regenerating so they don't silently drift from the graph.

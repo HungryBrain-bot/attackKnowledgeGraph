@@ -181,3 +181,70 @@ pattern-based check, not a general hallucination detector - consistent
 with this ADR's original "no general-purpose input-sanitization layer"
 alternatives-considered reasoning, applied to output validation instead
 of input sanitization this time.
+
+## Amendment, 2026-10-26 - the 2026-08-14 update overclaimed; what the guard actually catches
+
+The heading of the 2026-08-14 update above says the edge-existence
+guard "closes the 'fabricated attribute' gap." It did not, and that
+heading is left as written so the record shows what was claimed at the
+time. A senior-security-engineer review fed `answer()` fixed model
+replies through a stub provider (no network) and found four
+fabrications that passed both guards:
+
+- **(a)** a real edge with a fabricated confidence (`0.99` on an edge
+  stored at `0.85`) - the guard checked the edge triple only, never
+  the attributes printed next to it;
+- **(b)** a real edge credited to the wrong group (an APT29-only edge
+  labelled APT28) - same reason;
+- **(c)** a fabricated edge in passive voice ("T1078 is causally
+  enabled by T1204.002") - the pattern only matched the active,
+  present-tense verb;
+- **(d)** a fabricated edge followed by "not documented publicly" -
+  any rejection cue in the next 160 characters skipped the edge, so an
+  assertion only had to mention one.
+
+**Fix (`query/rag.py`, `_check_no_ungrounded_edges()`)**: attributes are
+now validated against the stored fact, not trusted from the model
+text. `_extract_edge_facts()` parses each edge's group, confidence and
+sample_size out of the FACTS block, which `retrieval.py` generates from
+the graph. For every edge the reply mentions: the triple must exist; if
+its sentence names a seed group, at least one named group must be one
+the edge is stored for; a confidence or sample_size stated after it
+must equal a stored value. The pattern accepts any tense, and a second
+pattern reads passive voice with the direction reversed. The
+quoted-rejection skip now needs both the edge quoted verbatim and an
+explicit refusal phrase in the same sentence; the loose cues ("not
+documented", "no evidence", "invented", ...) were removed.
+
+**Tests**: all four probes are deterministic tests in
+`tests/test_rag_guard.py` that go through the real `answer()` entry
+point, plus non-regression cases (a correct reply with real attributes
+passes; per-edge attribute scoping in a multi-edge sentence; every real
+FACTS block for all 13 seed techniques passes its own guard). CI runs
+them on every push and PR (`.github/workflows/test.yml`). Each probe
+was confirmed failing against the pre-fix code before the fix.
+
+### Known limitations (what the guard still does NOT catch)
+
+Stated as the guard's actual contract, replacing the 2026-08-14
+update's "closes the gap" wording:
+
+- **Free prose with no edge-type keyword.** "PowerShell reliably leads
+  to Valid Accounts" names no technique ID and no edge type, so neither
+  guard sees an edge. Only `--EDGE_TYPE-->`/arrow syntax and the
+  phrases "temporally precede(s/d)" / "causally enable(s/d)" are parsed.
+- **Group named outside the edge's sentence**, or a sentence naming
+  both the correct group and a wrong one - the group check is
+  per-sentence and passes if any named group matches.
+- **Fabricated sources and evidence text.** Source names, quotes and
+  incident details in the reply are not compared to FACTS.
+- **Attribute phrasings other than `confidence[: ]N` and
+  `sample_size[: ]N`** (e.g. "85% confident") are not parsed.
+- **Fail-closed on unquoted refusals.** A correct refusal that repeats
+  a fabricated edge without quoting it now raises `RuntimeError`
+  instead of returning. That is a false positive by design: an error
+  is preferable to a fabricated edge reaching the user.
+
+The guard reduces a specific, tested set of fabrications. It is not a
+general hallucination detector, and no doc in this repo should describe
+it as closing the fabricated-attribute gap in general.

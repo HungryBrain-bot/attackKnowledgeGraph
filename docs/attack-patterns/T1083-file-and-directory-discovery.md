@@ -1,5 +1,13 @@
 # T1083 - File and Directory Discovery
 
+> **Edge audit, 2026-10-26.** The semantic edges for this technique were
+> re-checked against primary sources ([docs/edge-audit.md](../edge-audit.md)).
+> Kept: none.
+> Removed: `T1057 -> T1083` (APT29), `T1083 -> T1560.001` (Lazarus Group).
+> Prose below that describes a removed edge, or the removed cross-group
+> comparison, is the pre-audit record and is no longer backed by the graph.
+> The Flow diagram is regenerated from the current graph.
+
 ## The Attack - What Actually Happens
 Before an adversary can steal something specific, they have to find it.
 For Lazarus Group, CISA advisory AA24-207A (August 2024, on Lazarus'
@@ -57,9 +65,6 @@ with the SolarWinds intrusion as the documented basis.
 ```mermaid
 flowchart LR
     T_T1083["T1083<br/>File and Directory Discovery"]
-    T_T1057["T1057<br/>Process Discovery"]
-    T_T1560_001["T1560.001<br/>Archive via Utility"]
-    T_T1057 -.->|"TEMPORALLY_PRECEDES<br/>APT29, 0.7"| T_T1083
-    T_T1083 -.->|"TEMPORALLY_PRECEDES<br/>Lazarus Group, 0.75"| T_T1560_001
+    %% no semantic edges touch T1083 yet
 ```
 <!-- END GENERATED -->

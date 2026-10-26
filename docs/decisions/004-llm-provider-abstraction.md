@@ -70,13 +70,14 @@ classDiagram
         +model = "gpt-5.1"
         +generate(prompt, system) str
     }
-    class KimiProvider {
-        +generate(prompt, system) str
-    }
-    LLMProvider <|-- ClaudeProvider : real, live-tested
+    LLMProvider <|-- ClaudeProvider : real, not live-tested
     LLMProvider <|-- OpenAIProvider : real, live-tested
-    LLMProvider <|-- KimiProvider : stub, raises NotImplementedError
 ```
+
+*Diagram updated 2026-10-26: `KimiProvider` removed (see the
+amendment at the end), and `ClaudeProvider`'s label corrected from
+"live-tested" - it has never been run against a live key in this
+project.*
 
 ## Alternatives considered
 - **Leave `rag.py` calling `anthropic` directly**: rejected - not because
@@ -139,3 +140,15 @@ existed. Notable in how it was implemented, not just that it was:
   `query.rag.answer(..., provider=get_provider("openai"))` call using
   real T1059.001/APT29 facts - both returned correct, correctly-cited
   answers, not just "didn't raise an exception."
+
+## Amendment, 2026-10-26 - KimiProvider stub removed
+
+`KimiProvider` was a stub whose `generate()` raised
+`NotImplementedError`; no key was ever configured and nothing called
+it. The 2026-10-26 review listed it as dead weight: a registered
+provider that can only fail makes the abstraction look broader than
+it is. Removed from `query/llm_provider.py`, `PROVIDERS` and
+`CREDENTIAL_ENV_VARS`. The interface is unchanged, so adding a real
+third provider later is still the two steps in CLAUDE.md's "Adding an
+LLM Provider". The sections above that describe the stub are the
+record of the original decision.

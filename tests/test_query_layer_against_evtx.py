@@ -11,7 +11,8 @@ For every locally-fetched EVTX/JSON sample under data/test_logs/ (see
      fetch script filed the scenario under. Catches a fetch/parsing
      mismatch rather than trusting our own directory naming.
   2. Confirms that technique is a real node in this project's graph
-     with structural usage data and at least one semantic edge - i.e.
+     with structural usage data (a semantic edge is no longer required -
+     see the 2026-10-26 note in the test body) - i.e.
      "for a technique real telemetry says actually happened, does our
      graph have something to say about it."
   3. Confirms query/retrieval.py's format_context() produces a
@@ -106,10 +107,10 @@ def test_real_telemetry_technique_has_graph_context(graph, technique_id, ttp_id,
         f"{technique_id} has real simulated telemetry but no structural "
         "USES_TECHNIQUE edge in the graph"
     )
-    assert context["semantic_edges"], (
-        f"{technique_id} has real simulated telemetry but no semantic "
-        "edge in the graph"
-    )
+    # No assertion on context["semantic_edges"]: since the 2026-10-26
+    # edge audit (docs/edge-audit.md) only 5 cited edges remain, so most
+    # seed techniques correctly have none. Requiring one here would push
+    # toward adding edges to satisfy a test.
 
     # 3. The retrieval layer's output is well-formed.
     facts = format_context(context)

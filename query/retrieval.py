@@ -21,7 +21,9 @@ consecutive pair with a bounded BFS - still pure Python graph traversal,
 no LLM, same grounding guarantee as the single-hop path. This replaces
 the "rejected for this pass" multi-hop line in ADR 003 now that there's
 a real need for it; see ADR 008 for why BFS/bounded-depth rather than an
-unbounded search or an LLM-driven walk.
+unbounded search or an LLM-driven walk. Since 2026-10-26 a path never
+mixes groups and is labelled with the incidents its hops come from (see
+ADR 009).
 """
 from __future__ import annotations
 
@@ -31,8 +33,8 @@ import networkx as nx
 
 SEMANTIC_EDGE_TYPES = ("TEMPORALLY_PRECEDES", "CAUSALLY_ENABLES")
 
-# Bounded rather than unbounded: the semantic-edge graph is small (17
-# hand-authored edges today) and a chain query only makes sense between
+# Bounded rather than unbounded: the semantic-edge graph is small (5
+# audited edges since 2026-10-26) and a chain query only makes sense between
 # techniques already roughly kill-chain-adjacent, so 4 hops is generous
 # for anything this prototype's data actually supports. Revisit this if
 # the semantic-edge set grows enough that 4 hops stops reaching
@@ -55,6 +57,9 @@ def _edge_core_fields(data: dict) -> dict:
         "sample_size": data["sample_size"],
         "sources": data["sources"],
         "evidence": data["evidence"],
+        "incident_id": data.get("incident_id"),
+        "quote": data.get("quote"),
+        "source_url": data.get("source_url"),
     }
 
 
@@ -129,12 +134,17 @@ def _find_semantic_path(
     g: nx.MultiDiGraph,
     source: str,
     target: str,
-    group: str | None,
+    group: str,
     max_hops: int,
 ) -> list[dict] | None:
     """Bounded, early-exit BFS from `source` to `target` over directed
-    semantic edges only (TEMPORALLY_PRECEDES/CAUSALLY_ENABLES),
-    optionally filtered to one group, up to `max_hops` hops deep.
+    semantic edges only (TEMPORALLY_PRECEDES/CAUSALLY_ENABLES) of ONE
+    group, up to `max_hops` hops deep.
+
+    `group` is required: a path is only ever built from one group's
+    edges (docs/decisions/009). Before 2026-10-26 an unfiltered search
+    walked every group's edges at once and could return an APT28 hop,
+    then an APT29 hop, then an APT28 hop - a sequence no actor ran.
 
     BFS (not DFS) so the first path found is guaranteed shortest. Returns
     the ordered list of hop-facts connecting source to target, or None
@@ -164,6 +174,25 @@ def _find_semantic_path(
     return None
 
 
+def semantic_edge_groups(g: nx.MultiDiGraph) -> list[str]:
+    """Every group_context that has at least one semantic edge, sorted."""
+    return sorted(
+        {data["group_context"] for _, _, data in g.edges(data=True) if data.get("edge_type") in SEMANTIC_EDGE_TYPES}
+    )
+
+
+def _path_incidents(path: list[dict]) -> list[str]:
+    """Distinct incident IDs a path's hops come from, in hop order.
+    A hop with no incident_id counts as "unknown", which is itself a
+    reason not to read the path as one observed sequence."""
+    incidents: list[str] = []
+    for hop in path:
+        incident = hop.get("incident_id") or "unknown"
+        if incident not in incidents:
+            incidents.append(incident)
+    return incidents
+
+
 def get_chain_context(
     g: nx.MultiDiGraph,
     technique_ids: list[str],
@@ -180,6 +209,15 @@ def get_chain_context(
     connecting path, up to `max_hops` hops - still pure graph traversal,
     no LLM, same grounding guarantee as the single-hop path.
 
+    Paths never mix groups (docs/decisions/009): with a `group` filter,
+    each link gets at most that group's path; without one, each link
+    gets one single-group path per group that has one, side by side and
+    never stitched together. Every path also lists the incidents its
+    hops come from, and `spans_incidents` is True when there is more
+    than one (or an unknown one) - a single group's edges can still come
+    from different operations, so such a path is not one observed
+    intrusion.
+
     Raises ValueError if fewer than 2 technique IDs are given, or if any
     of them isn't a Technique node in the graph (via
     `get_technique_context()`).
@@ -188,18 +226,26 @@ def get_chain_context(
         raise ValueError("get_chain_context needs at least 2 technique IDs - use get_technique_context for one")
 
     techniques = [get_technique_context(g, tid, group=group) for tid in technique_ids]
+    groups = [group] if group is not None else semantic_edge_groups(g)
 
     links = []
     for source, target in zip(technique_ids, technique_ids[1:]):
-        path = _find_semantic_path(g, source, target, group, max_hops)
-        links.append(
-            {
-                "from": source,
-                "to": target,
-                "path": path,
-                "hops": len(path) if path is not None else None,
-            }
-        )
+        paths = []
+        for candidate_group in groups:
+            path = _find_semantic_path(g, source, target, candidate_group, max_hops)
+            if path is None:
+                continue
+            incidents = _path_incidents(path)
+            paths.append(
+                {
+                    "group": path[0]["group_context"] if path else candidate_group,
+                    "path": path,
+                    "hops": len(path),
+                    "incidents": incidents,
+                    "spans_incidents": len(incidents) > 1 or "unknown" in incidents,
+                }
+            )
+        links.append({"from": source, "to": target, "paths": paths})
 
     return {
         "technique_ids": technique_ids,
@@ -252,8 +298,9 @@ def format_context(context: dict) -> str:
         lines.append(f"  - [{e['group_context']}] {arrow}")
         lines.append(
             f"    confidence: {e['confidence']}, sample_size: {e['sample_size']}, "
-            f"sources: {', '.join(e['sources'])}"
+            f"incident: {e['incident_id'] or 'unknown'}, sources: {', '.join(e['sources'])}"
         )
+        lines.append(f"    quote: \"{e['quote']}\" ({e['source_url']})")
         lines.append(f"    evidence: {e['evidence']}")
 
     return "\n".join(lines)
@@ -277,18 +324,32 @@ def format_chain_context(context: dict) -> str:
         lines.append(format_context(tech_context))
         lines.append("")
 
+    lines.append(
+        "Paths below are per group: each one uses a single group's edges, "
+        "and hops from different groups are never combined into one sequence."
+    )
+    lines.append("")
+
     for link in context["links"]:
         lines.append(f"Path {link['from']} -> {link['to']}:")
-        if link["path"] is None:
+        if link["from"] == link["to"]:
+            lines.append("  (same technique - no hops needed)")
+        elif not link["paths"]:
             lines.append(
-                f"  (no semantic-edge path found within {context['max_hops']} hops"
+                f"  (no single-group semantic-edge path found within {context['max_hops']} hops"
                 + (f" for {context['group_filter']}" if context["group_filter"] else "")
                 + ")"
             )
-        elif not link["path"]:
-            lines.append("  (same technique - no hops needed)")
-        else:
-            for hop_num, hop in enumerate(link["path"], start=1):
+        for p in link["paths"]:
+            if not p["path"]:
+                continue
+            lines.append(f"  [{p['group']}] {p['hops']}-hop path, incidents: {', '.join(p['incidents'])}")
+            if p["spans_incidents"]:
+                lines.append(
+                    "  WARNING: this path joins edges from different (or unidentified) "
+                    "incidents - it is NOT one observed intrusion sequence."
+                )
+            for hop_num, hop in enumerate(p["path"], start=1):
                 lines.append(
                     f"  hop {hop_num}: [{hop['group_context']}] "
                     f"{hop['from_technique']} ({hop['from_technique_name']}) "
@@ -297,8 +358,9 @@ def format_chain_context(context: dict) -> str:
                 )
                 lines.append(
                     f"    confidence: {hop['confidence']}, sample_size: {hop['sample_size']}, "
-                    f"sources: {', '.join(hop['sources'])}"
+                    f"incident: {hop['incident_id'] or 'unknown'}, sources: {', '.join(hop['sources'])}"
                 )
+                lines.append(f"    quote: \"{hop['quote']}\" ({hop['source_url']})")
                 lines.append(f"    evidence: {hop['evidence']}")
         lines.append("")
 

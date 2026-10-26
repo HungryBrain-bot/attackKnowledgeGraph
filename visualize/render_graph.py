@@ -54,7 +54,6 @@ from query.graph_loader import load_graph
 REPO_ROOT = Path(__file__).parent.parent
 OUTPUT_PATH = REPO_ROOT / "docs" / "graph_visualization.html"
 
-STRUCTURAL_EDGE_TYPES = ("USES_TECHNIQUE", "HAS_TACTIC")
 SEMANTIC_EDGE_TYPES = ("TEMPORALLY_PRECEDES", "CAUSALLY_ENABLES")
 
 # Neutral tokens, chosen with the dataviz skill's `validate_palette.js`

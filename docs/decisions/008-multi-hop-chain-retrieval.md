@@ -111,3 +111,13 @@ API to the chain path is a separate, unbuilt follow-on, not done here).
 - ADR 003's single-hop design remains correct for the common case (one
   technique, "what's next/what enabled it") - this ADR extends it rather
   than replacing it.
+
+## Update, 2026-10-26 - unfiltered chains mixed groups
+
+The path search above applied the group filter only when one was
+given, so an unfiltered chain could stitch APT28 and APT29 edges into
+one sequence no actor ran. Fixed in docs/decisions/009-single-group-
+chains.md: every path now uses one group's edges, and paths that join
+edges from different incidents are flagged. The link shape in the
+Consequences section above (`path`/`hops`) is replaced by a `paths`
+list there.
