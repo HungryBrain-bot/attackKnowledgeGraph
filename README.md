@@ -85,6 +85,13 @@ these facts only and checked by the guard before it is returned.
   different sentence, fabricated sources, and other attribute phrasings.
   Fails closed: a correct refusal that repeats a fabricated edge without
   quoting it raises an error.
+- **Non-seed actors**: the 2026-11 ARTEX reports (Phases 1 to 3) were
+  assessed and added no edge, because their actors are not APT29, APT28
+  or Lazarus Group and their techniques are not seed techniques. The
+  detection rules for them are in the separate
+  [detection_As_Code](https://github.com/HungryBrain-bot/detection_As_Code)
+  repo. Whether the graph should ever hold non-seed actors is an open
+  decision ([docs/edge-audit.md](docs/edge-audit.md), "Open for Venu").
 - **Chains** ([ADR 009](docs/decisions/009-single-group-chains.md)):
   one group per path, BFS capped at 4 hops; incident labels are only as
   good as the audit.
