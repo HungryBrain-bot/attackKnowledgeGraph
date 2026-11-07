@@ -1750,3 +1750,16 @@ it does; each step below was reproduced before it was fixed.
   docs/threats/artex-phase3-identity.md).
 - Graph unchanged: 26 nodes, 59 edges. Tests not rerun (no code or data
   changed; docs only).
+
+## 2026-11-07 - Docs pass after the ARTEX assessments
+
+- Checked against `main` at fcc27ce (PRs #5 to #7 merged). Docs only.
+- README "Known limitations" and CLAUDE.md "Current status" now say that
+  ARTEX Phases 1 to 3 were assessed and added no edge, and point to
+  docs/edge-audit.md for the open non-seed-actor decision. Edge and node
+  counts unchanged (5 semantic edges, 26 nodes, 59 edges).
+- Not done: no Phase 4 (foothold) assessment exists in this repo;
+  detection_As_Code has Phase 4 rules (E1-E6, E8, E9). Writing one needs
+  the Phase 4 sources read against the edge rules, so it is left for the
+  owner rather than asserted here.
+- Tests: 45 passed, 7 skipped, 0 failed.

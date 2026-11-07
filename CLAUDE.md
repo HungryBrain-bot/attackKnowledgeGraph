@@ -254,6 +254,10 @@ removed on 2026-10-26, docs/decisions/004 amendment).
   re-audited, 12 removed (ADR 010, docs/edge-audit.md); cross-group
   comparisons and the Kimi stub removed (ADR 006 superseded, ADR 004
   amendment); README overclaims removed.
+- 2026-11-07: ARTEX Phases 1 to 3 assessed for the graph; no edge added
+  (non-seed actors and techniques; docs/edge-audit.md, BUILD_LOG.md).
+  Their rules live in detection_As_Code. Phase 4 has not been assessed
+  here.
 - Verified: `OpenAIProvider` end to end (2026-08-13); Docker build/run
   (2026-08-15); everything in the deterministic test suite.
 - Not verified: `ClaudeProvider` against a live key; the audit's quotes
