@@ -85,3 +85,10 @@ now carries.
   techniques. The detection work went to detection_As_Code instead
   (rules B4-B7, hunt H1, docs/threats/artex-phase1-credential-sourcing.md).
   Decide deliberately whether the graph should ever hold non-seed actors.
+- **ARTEX Phase 2 (2026-11-07): no edge added.** Wiz's 2026-10-22 post
+  narrates an order (source maps, config and Swagger downloaded, then
+  internal API routes called "minutes after"), but for an ARTEX-using
+  actor that only "overlaps" with Storm-0940, not a seed group, and
+  T1594 / T1595 / T1580 are not seed techniques. Same open question as
+  Phase 1. The detection work went to detection_As_Code (rules D1-D4,
+  docs/threats/artex-phase2-recon.md).

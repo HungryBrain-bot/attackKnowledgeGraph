@@ -1716,3 +1716,19 @@ it does; each step below was reproduced before it was fixed.
   for the post live in detection_As_Code (B4-B7, H1).
 - Graph unchanged: 26 nodes, 59 edges. Tests: 45 passed, 7 skipped
   (live-LLM and EVTX), 0 failed.
+
+## 2026-11-07 - ARTEX Phase 2 (recon) assessed for the graph; nothing added
+
+- Owner asked for the Phase 2 post of their agentic-attack blog series to
+  be recorded in the repos. Checked against this repo's rules (CLAUDE.md,
+  "Adding or changing an edge"): the Wiz post (2026-10-22) narrates source
+  maps, config and Swagger downloads followed by internal API route calls
+  "minutes" later, but for an actor that "overlaps" with Microsoft's
+  Storm-0940, not APT29, APT28 or Lazarus Group, and over techniques
+  (T1594, T1595, T1580) that are not in the 13-technique seed set.
+- No edge, group, technique or data source added; parked with the Phase 1
+  decision in docs/edge-audit.md "Open for Venu". The rules and the claim
+  check live in detection_As_Code (D1-D4,
+  docs/threats/artex-phase2-recon.md).
+- Graph unchanged: 26 nodes, 59 edges. Tests not rerun (no code or data
+  changed; docs only).
