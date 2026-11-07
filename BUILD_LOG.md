@@ -1714,5 +1714,5 @@ it does; each step below was reproduced before it was fixed.
 - No edge, group, technique or data source added; parked as a decision
   in docs/edge-audit.md "Open for Venu". The rules and the claim check
   for the post live in detection_As_Code (B4-B7, H1).
-- Graph unchanged: 26 nodes, 59 edges. Tests not rerun (no code or data
-  changed; docs only).
+- Graph unchanged: 26 nodes, 59 edges. Tests: 45 passed, 7 skipped
+  (live-LLM and EVTX), 0 failed.
