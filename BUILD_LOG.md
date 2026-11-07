@@ -1700,3 +1700,19 @@ it does; each step below was reproduced before it was fixed.
   checklist) - run playbook-sync if those templates matter.
 - Next: owner explains the project closed-book from docs/OWNERSHIP.md.
   Not more building.
+
+## 2026-11-07 - ARTEX Phase 1 assessed for the graph; nothing added
+
+- Owner asked for the Phase 1 (credential sourcing) post of their
+  agentic-attack blog series to be recorded in the repos. Checked
+  against this repo's rules (CLAUDE.md, "Adding or changing an edge"):
+  Microsoft's 2026-11-05 post narrates GitHub secret search followed by
+  Key Vault exfiltration in five minutes, which is the kind of ordered
+  sentence an edge needs, but for an unnamed actor using ARTEX, not a
+  seed group, and over techniques (T1593.003, T1078.004, T1555.006) that
+  are not in the 13-technique seed set.
+- No edge, group, technique or data source added; parked as a decision
+  in docs/edge-audit.md "Open for Venu". The rules and the claim check
+  for the post live in detection_As_Code (B4-B7, H1).
+- Graph unchanged: 26 nodes, 59 edges. Tests not rerun (no code or data
+  changed; docs only).

@@ -76,3 +76,12 @@ now carries.
   re-homing them would widen scope.
 - **Lazarus Group now has no semantic edges.** The structural
   `USES_TECHNIQUE` data for it is unchanged.
+- **ARTEX Phase 1 (2026-11-07): no edge added.** Microsoft's
+  2026-11-05 post ("Threat actors use agentic AI tooling to find and
+  abuse exposed secrets") narrates a real sequence, GitHub secret search
+  to Key Vault exfiltration "in just five minutes", but the actor is not
+  APT29, APT28 or Lazarus Group, and T1593.003 / T1078.004 / T1555.006
+  are not seed techniques. Adding it would mean a new group and new
+  techniques. The detection work went to detection_As_Code instead
+  (rules B4-B7, hunt H1, docs/threats/artex-phase1-credential-sourcing.md).
+  Decide deliberately whether the graph should ever hold non-seed actors.
