@@ -92,3 +92,12 @@ now carries.
   T1594 / T1595 / T1580 are not seed techniques. Same open question as
   Phase 1. The detection work went to detection_As_Code (rules D1-D4,
   docs/threats/artex-phase2-recon.md).
+- **ARTEX Phase 3 (2026-11-07): no edge added.** Neither Wiz's 2026-10-22
+  post nor Microsoft's 2026-10-21 Storm-0940 report narrates an order
+  between identity techniques (spraying, OAuth callback and `state`
+  tampering, unsigned JWTs, recovery abuse); Wiz lists them as a playbook.
+  The actor is an ARTEX-using one that "overlaps" with Storm-0940, not a
+  seed group, and T1110.003 / T1589 / T1606 / T1190 are not seed
+  techniques. Same open question as Phases 1 and 2. The detection work
+  went to detection_As_Code (rules B8-B13,
+  docs/threats/artex-phase3-identity.md).
