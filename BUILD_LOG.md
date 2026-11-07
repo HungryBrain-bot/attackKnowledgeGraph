@@ -1732,3 +1732,21 @@ it does; each step below was reproduced before it was fixed.
   docs/threats/artex-phase2-recon.md).
 - Graph unchanged: 26 nodes, 59 edges. Tests not rerun (no code or data
   changed; docs only).
+
+## 2026-11-07 - ARTEX Phase 3 (identity) assessed for the graph; nothing added
+
+- Owner asked for the Phase 3 post of their agentic-attack blog series to
+  be recorded in the repos. Checked against this repo's rules (CLAUDE.md,
+  "Adding or changing an edge"): Wiz (2026-10-22) lists the actor's
+  identity steps (password spraying of Okta and Entra ID, OAuth callback
+  and `state` tampering, unsigned JWTs, account-recovery abuse, SSO and
+  Microsoft 365 probing) as a playbook, without narrating one before
+  another; Microsoft's Storm-0940 report gives spray volumes, no order.
+  The actor only "overlaps" with Storm-0940, not APT29, APT28 or Lazarus
+  Group, and the techniques are not in the 13-technique seed set.
+- No edge, group, technique or data source added; parked with the Phase 1
+  and 2 decisions in docs/edge-audit.md "Open for Venu". The rules and the
+  claim check live in detection_As_Code (B8-B13,
+  docs/threats/artex-phase3-identity.md).
+- Graph unchanged: 26 nodes, 59 edges. Tests not rerun (no code or data
+  changed; docs only).
