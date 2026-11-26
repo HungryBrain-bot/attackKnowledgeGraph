@@ -51,7 +51,10 @@ flowchart LR
   definitions are in its module docstring. Output:
   `data/graph_with_semantics.json`, 26 nodes, 59 edges (54 structural,
   4 CAUSALLY_ENABLES, 1 TEMPORALLY_PRECEDES). Committed, so the API and
-  Docker image never need the STIX bundle.
+  Docker image never need the STIX bundle. Both exported JSON files
+  carry `graph.schema_version` (`SCHEMA_VERSION` in this module);
+  `query/graph_loader.py` refuses a file whose version differs. Bump it
+  with a dated note in ADR 002 when an exported field changes.
 - `graph/seed_config.py` - the fixed seed set (docs/decisions/001).
 - `query/retrieval.py` - `get_technique_context()` / `format_context()`
   for one technique's structural usage and directly connected semantic
@@ -82,6 +85,8 @@ flowchart LR
 - `tests/` - see Testing below.
 - `docs/edge-audit.md` - per-edge source, quote, incident ID and
   status (VERIFIED / REMOVED) from the 2026-10-26 audit.
+- `docs/provenance.md` - where each structural and semantic fact comes
+  from, how it reaches the user, and the provenance gaps.
 - `docs/OWNERSHIP.md` - the owner's closed-book explanation notes.
 - `docs/decisions/` - ADRs 001-010. Amended ADRs keep their original
   text and add a dated amendment; they are not rewritten.
@@ -152,6 +157,9 @@ Two categories, unambiguous by construction (see
 Run `python -m pytest tests/` from the repo root before every commit.
 CI (`.github/workflows/test.yml`) rebuilds both graph JSON files from
 the STIX bundle and runs the same suite on every push and PR to `main`.
+The bundle is cached under its upstream ETag, so a new ATT&CK release
+is downloaded; CI warns (does not fail) when the rebuild differs from
+the committed JSON.
 
 - `test_rag_guard.py` - the guards, deterministic. Includes the four
   2026-10-26 review probes (fabricated confidence, wrong group, passive
@@ -163,13 +171,15 @@ the STIX bundle and runs the same suite on every push and PR to `main`.
   synthetic fixture graph for behavior 5 edges cannot exercise
   (cross-group stitching, two groups on one pair, cross-incident paths).
 - `test_api.py` - FastAPI `TestClient`, no LLM.
+- `test_graph_export.py` - committed JSON carries the current
+  `schema_version`; the loader rejects a missing or different one.
 - `test_fetch_test_logs_safety.py` - path-traversal guard in the
   fetch-test-logs skill script.
 - `test_adversarial_queries.py` - live LLM, skips without a key.
 - `test_query_layer_against_evtx.py` - real atomic-evtx samples, skips
   until `.claude/skills/fetch-test-logs/fetch_test_logs.py --fetch` is run.
 
-Last full run (2026-10-26): 45 passed, 7 skipped (the live-LLM and
+Last full run (2026-11-26): 50 passed, 7 skipped (the live-LLM and
 EVTX files), 0 failed.
 
 ## Code Review Standards

@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  STIX_URL: https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -19,22 +22,32 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # The STIX bundle is ~48MB and gitignored (see CLAUDE.md's Setup
-      # section) - cached across runs since it changes rarely, so most
-      # runs skip the download entirely.
+      # The STIX bundle is ~48MB and gitignored - cached across runs since
+      # it changes rarely. The cache key is the upstream file's ETag
+      # (a HEAD request, no download), so a new ATT&CK release misses
+      # the cache and is downloaded. Until 2026-11-26 the key was a fixed
+      # string, so CI kept testing whichever bundle it cached first.
+      # The step fails if no ETag comes back rather than reuse a stale key.
+      - name: Get STIX bundle version (ETag)
+        id: stix-etag
+        run: |
+          etag=$(curl -sSfI "$STIX_URL" | tr -d '\r' \
+            | awk 'tolower($1)=="etag:" {gsub(/"/, "", $2); print $2}')
+          test -n "$etag"
+          echo "etag=$etag" >> "$GITHUB_OUTPUT"
+
       - name: Cache MITRE ATT&CK STIX bundle
         id: stix-cache
         uses: actions/cache@v4
         with:
           path: data/raw/enterprise-attack.json
-          key: stix-bundle-enterprise-attack
+          key: stix-bundle-enterprise-attack-${{ steps.stix-etag.outputs.etag }}
 
       - name: Download MITRE ATT&CK STIX bundle
         if: steps.stix-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p data/raw
-          curl -o data/raw/enterprise-attack.json \
-            https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json
+          curl -sSf -o data/raw/enterprise-attack.json "$STIX_URL"
 
       # Rebuilds data/structural_graph.json and data/graph_with_semantics.json
       # from scratch, same as the README's Quick Start - this is what
@@ -45,6 +58,15 @@ jobs:
 
       - name: Add semantic edges
         run: python -m graph.semantic_edges
+
+      # The API and Docker image serve the COMMITTED JSON, not this
+      # rebuild. Warn (do not fail: an ATT&CK release would turn every
+      # unrelated PR red) when the rebuild differs from what is committed,
+      # so a stale snapshot shows up on the run instead of going unnoticed.
+      - name: Check committed graph snapshot is current
+        run: |
+          git diff --stat --exit-code -- data/ \
+            || echo "::warning::Committed data/*.json differs from a fresh rebuild - regenerate and commit it."
 
       # No ANTHROPIC_API_KEY/OPENAI_API_KEY secrets are configured for
       # this repo at this stage, and data/test_logs/ is never fetched

@@ -2,8 +2,9 @@
 
 > **DESIGN ONLY - NOT BUILT.** Nothing in this document exists in code.
 > No agent roles described here have been implemented, no orchestration
-> exists, `ingestion/` remains the empty placeholder it's always been
-> (see docs/decisions/001-seed-scope.md). This is deferred design
+> exists, and there is no `ingestion/` directory (it was described as an
+> empty placeholder, but git does not track empty directories; corrected
+> 2026-11-26; see docs/decisions/001-seed-scope.md). This is deferred design
 > thinking, dated 2026-08-13, written down so it isn't lost or
 > reconstructed from memory later - not a roadmap item, not a claim of
 > progress. See `.claude/skills/scale-to-continuous-ingestion/SKILL.md`
@@ -13,7 +14,8 @@
 
 Today, `graph/semantic_edges.py` hand-authors every `TEMPORALLY_PRECEDES`/
 `CAUSALLY_ENABLES` edge as a static Python literal in `SEMANTIC_EDGES` -
-16 edges, each with a `confidence`, `sample_size`, `sources`, and
+16 edges when this was written, 5 after the 2026-10-26 audit
+(docs/edge-audit.md), each with a `confidence`, `sample_size`, `sources`, and
 `evidence` field, sourced by a human reading real CTI reports (see
 docs/decisions/002-semantic-edge-schema.md). This works at 13 techniques
 and 3 groups. It does not scale to continuous ingestion of daily CTI feed
@@ -103,11 +105,11 @@ strictly sequential.
   specifically so the phase boundary stays visible in git history
   (docs/decisions/002). Nothing moves from `proposed_edges` to
   `validated_edges` without passing the gate below.
-- **`ingestion/`'s existing placeholder becomes the natural home** for
-  the source-monitoring and extraction roles' code, once built -
-  consistent with CLAUDE.md's current description of that directory as
-  "reserved for a future automated CTI ingestion pipeline," not a
-  relocation of anything that exists today.
+- **A new `ingestion/` directory would be the natural home** for the
+  source-monitoring and extraction roles' code, once built - not a
+  relocation of anything that exists today. (This bullet used to call
+  `ingestion/` an existing placeholder; no such directory exists.
+  Corrected 2026-11-26.)
 
 ## Validation gate(s) - what has to be true before an agent-proposed edge is trusted
 
@@ -295,10 +297,33 @@ and one built from invented placeholder data would risk being
 mistaken for real evidence later, the exact failure mode this section
 exists to avoid repeating.
 
+## Unevaluated candidate: Jev (TypeSafe AI)
+
+Listed 2026-11-26 so the idea is recorded, not because it has been
+tried. Nothing here was tested, and no claim below was checked against
+the product.
+
+- **What it is said to be**, per the project's planning notes from the
+  vendor's launch material (2026-09): a model that takes program state
+  plus typed questions (Boolean, Choice, Score) and returns typed
+  answers with probabilities instead of free text. Latency, speed and
+  cost figures are vendor claims, not verified.
+- **Where it might fit:** the bounded qualitative judgments this design
+  hands to agents, such as source-reliability tier or the
+  `confidence_reasoning.basis` choice, which feed the deterministic
+  confidence function above. Those are Choice-type questions.
+- **Where it does not fit:** the built pipeline. Entity extraction stays
+  regex (ADR 003), and the grounding guards in `query/rag.py` stay
+  deterministic (ADR 005). A probabilistic model there would weaken
+  the property the guards exist for.
+- **Before it could feed any score:** evaluate it against hand-labelled
+  examples, the same way any agent role here would need to pass the
+  validation gate. It was a new product with no track record when this
+  was written.
+
 ## Why this is deliberately deferred now
 
-Same reasoning as `ingestion/` being an intentionally empty placeholder
-today (docs/decisions/001): this project's goal is a working prototype
+Same reasoning as keeping ingestion out of scope (docs/decisions/001): this project's goal is a working prototype
 that proves the graph-modeling architecture's value on a small,
 defensible, fully human-verified slice of real data, in a bounded
 timeframe - not the full-scale ingestion system the original technical

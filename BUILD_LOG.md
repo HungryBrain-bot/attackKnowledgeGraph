@@ -1763,3 +1763,29 @@ it does; each step below was reproduced before it was fixed.
   the Phase 4 sources read against the edge rules, so it is left for the
   owner rather than asserted here.
 - Tests: 45 passed, 7 skipped, 0 failed.
+
+## 2026-11-26 - Consolidation fixes from the 2026-10-23 status list
+
+- Checked against `main` at b2bfc4d. Owner asked to fix what is broken
+  or stale, with no new features, before an open-book review.
+- Already done on `main` (by the 2026-10-26 consolidation), so not
+  changed: README no longer describes `ingestion/` or lists "add CI"
+  as planned; README's repository structure already listed `api/` and
+  `skills-playbook/`. The committed graph JSON matched a fresh rebuild
+  from today's STIX bundle (sha256 f92e8ec8...), so it was not stale.
+- Fixed: CI cached the STIX bundle under a fixed key, so it never
+  picked up a new ATT&CK release. The key is now the upstream file's
+  ETag (HEAD request), and CI warns when the rebuild differs from the
+  committed JSON. Not run on GitHub yet; the ETag command was run here.
+- Fixed: stale `ingestion/` placeholder wording in
+  docs/future/multi-agent-ingestion.md (also its "16 edges") and
+  skills-playbook/README.md. README's structure gained Dockerfile,
+  docker-compose.yml, `data/`, `.github/workflows/`.
+- Added (agreed in the 2026-10 planning review, scoped by the owner for
+  this pass): `schema_version: 1` in both exported JSON files, checked
+  by `query/graph_loader.py` (ADR 002 update, tests/test_graph_export.py);
+  docs/provenance.md, written from the code and the audit; Jev
+  (TypeSafe AI) listed as an unevaluated candidate in
+  docs/future/multi-agent-ingestion.md.
+- Graph unchanged: 26 nodes, 59 edges. Tests: 50 passed, 7 skipped,
+  0 failed.

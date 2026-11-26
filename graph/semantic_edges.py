@@ -51,6 +51,14 @@ docs/edge-audit.md, not kept here.
 
 import networkx as nx
 
+# Version of the exported graph JSON format (the node and edge fields
+# written to data/*.json). Written as the top-level "graph" attribute
+# "schema_version" by both exports and checked by query/graph_loader.py.
+# Bump it, with a dated note in docs/decisions/002, whenever a field is
+# added, removed or renamed. Unrelated to the unbuilt 0.x schema in
+# docs/future/schema_reference/.
+SCHEMA_VERSION = 1
+
 SEMANTIC_EDGES = [
     {
         "source": "T1078",
@@ -224,6 +232,7 @@ if __name__ == "__main__":
 
     g = build_structural_graph()
     g = add_semantic_edges(g)
+    g.graph["schema_version"] = SCHEMA_VERSION
     print(graph_summary(g))
 
     out_path = Path(__file__).parent.parent / "data" / "graph_with_semantics.json"

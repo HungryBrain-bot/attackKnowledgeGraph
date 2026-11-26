@@ -13,6 +13,8 @@ from pathlib import Path
 
 import networkx as nx
 
+from graph.semantic_edges import SCHEMA_VERSION
+
 GRAPH_PATH = Path(__file__).parent.parent / "data" / "graph_with_semantics.json"
 
 
@@ -24,4 +26,10 @@ def load_graph() -> nx.MultiDiGraph:
         )
     with open(GRAPH_PATH) as f:
         data = json.load(f)
+    found = data.get("graph", {}).get("schema_version")
+    if found != SCHEMA_VERSION:
+        raise ValueError(
+            f"{GRAPH_PATH} has schema_version {found!r}, this code expects "
+            f"{SCHEMA_VERSION} - rebuild it with `python -m graph.semantic_edges`."
+        )
     return nx.node_link_graph(data, edges="edges")
