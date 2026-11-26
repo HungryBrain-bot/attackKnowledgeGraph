@@ -186,17 +186,20 @@ graph/
   seed_config.py        fixed seed set: 3 groups, 13 techniques
   generate_diagrams.py  Mermaid diagrams from the built graph
 query/
-  graph_loader.py       loads data/graph_with_semantics.json
+  graph_loader.py       loads data/graph_with_semantics.json, checks its schema_version
   retrieval.py          single-technique and multi-hop chain retrieval (no LLM)
   rag.py                prompt construction + deterministic grounding guards
   llm_provider.py       LLMProvider interface; ClaudeProvider, OpenAIProvider
   ask.py                CLI: python -m query.ask "..."
 api/main.py             FastAPI wrapper: POST /query, GET /health, GET /techniques
+Dockerfile, docker-compose.yml  container for the API (serves the committed graph JSON)
+data/                   committed graph JSON (structural + combined); data/raw/ is gitignored
 visualize/              pyvis visualization -> docs/graph_visualization.html
 tests/                  deterministic tests (guard probes, chains, API, path safety)
                         + live-LLM and EVTX tests that skip without credentials/logs
 docs/
   edge-audit.md         per-edge source, quote, incident, status (2026-10-26)
+  provenance.md         where each structural and semantic fact comes from, and the gaps
   OWNERSHIP.md          closed-book explanation notes for the project owner
   decisions/            ADRs 001-010
   attack-patterns/      one case file per seed technique (pre-audit prose, dated notes)
@@ -204,6 +207,7 @@ docs/
   future/               design-only, unbuilt notes
 .claude/skills/         Claude Code skills used to build this repo
 skills-playbook/        generalized versions of those skills
+.github/workflows/      CI: rebuild the graph from the STIX bundle, run the deterministic tests
 ```
 
 ## Quick Start

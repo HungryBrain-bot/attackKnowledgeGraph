@@ -1,7 +1,9 @@
 {
   "directed": true,
   "multigraph": true,
-  "graph": {},
+  "graph": {
+    "schema_version": 1
+  },
   "nodes": [
     {
       "node_type": "Technique",

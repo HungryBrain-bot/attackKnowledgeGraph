@@ -119,7 +119,10 @@ def graph_summary(g: nx.MultiDiGraph) -> str:
 
 
 if __name__ == "__main__":
+    from graph.semantic_edges import SCHEMA_VERSION
+
     g = build_structural_graph()
+    g.graph["schema_version"] = SCHEMA_VERSION
     print(graph_summary(g))
 
     out_path = Path(__file__).parent.parent / "data" / "structural_graph.json"

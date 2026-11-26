@@ -96,3 +96,17 @@ found citations that did not support their edges. Every edge now also
 carries `source_url`, `source_date`, a verbatim `quote` and an
 `incident_id`, and 12 of the 17 edges were removed. See
 docs/decisions/010-edge-reaudit.md and docs/edge-audit.md.
+
+## Update, 2026-11-26 - the exported JSON carries a schema_version
+
+Both exported files (`data/structural_graph.json`,
+`data/graph_with_semantics.json`) now carry `"schema_version": 1` in
+their top-level `graph` object, from `SCHEMA_VERSION` in
+`graph/semantic_edges.py`. Version 1 is the field set as of the
+2026-10-26 audit (the fields above plus `incident_id`, `source_url`,
+`source_date`, `quote`; no `comparisons`). Earlier exports had no
+version. `query/graph_loader.py` raises if the version is missing or
+different, so a stale or hand-edited file fails at load rather than
+returning wrong fields. It does not check the fields themselves: a
+field change without a version bump is not caught. This number is
+unrelated to the unbuilt 0.x schema in docs/future/schema_reference/.

@@ -57,8 +57,9 @@ made" is actually for: not making the log look clean, but making it
 
 ### 4. Defer scope deliberately, with a written trigger - not silently, not "just in case"
 
-**From this project:** `ingestion/` has sat as an empty, deliberately
-unbuilt placeholder directory since the project's first session. The
+**From this project:** ingestion has been deliberately out of scope
+since the project's first session (there is no `ingestion/` directory;
+an earlier version of this text called it an empty placeholder). The
 design thinking for what would eventually go there - a multi-agent
 continuous data-ingestion pipeline - is written down in full, but gated
 behind a skill (`scale-to-continuous-ingestion`) whose entire job is
